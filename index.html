@@ -1,0 +1,2217 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ブレッドボード回路エディタ | Breadboard Studio</title>
+<style>
+:root{
+  --bg:#eef1f5;--panel:#fff;--line:#d8dee8;--text:#243042;--muted:#64748b;
+  --accent:#1f9cff;--wire:#22c55e;--board:#f4f4ef;--edge:#d8d7cd;--hole:#444;
+  --red:#e53935;--blue:#3478f6;--shadow:0 10px 30px rgba(21,31,46,.09);
+  --pitch-x:27px;--pitch-y:26px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
+button,input,select{font:inherit}
+.topbar{height:58px;background:linear-gradient(180deg,#ffffff,#f7f9fc);border-bottom:1px solid #d9e2ee;display:flex;align-items:center;gap:12px;padding:0 16px}
+.brand{display:flex;align-items:center;gap:12px;font-weight:800;color:#223046;letter-spacing:.02em}
+.brand-mark{position:relative;width:42px;height:32px;border-radius:11px;background:linear-gradient(135deg,#0ea5e9 0%,#6366f1 100%);box-shadow:0 6px 18px rgba(37,99,235,.18), inset 0 0 0 1px rgba(255,255,255,.28);flex:none}
+.brand-mark .trace{position:absolute;left:8px;right:8px;top:15px;height:2px;background:rgba(255,255,255,.92);border-radius:999px}
+.brand-mark .node{position:absolute;width:8px;height:8px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.18)}
+.brand-mark .n1{left:7px;top:6px}
+.brand-mark .n2{left:17px;top:20px}
+.brand-mark .n3{right:7px;top:8px}
+.brand-name{display:flex;flex-direction:column;line-height:1.05}
+.brand-name strong{font-size:14px;color:#223046}
+.brand-name small{font-size:11px;color:#64748b;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.spacer{flex:1}.pill{border:1px solid #d4dbe6;background:#fff;border-radius:10px;padding:8px 14px;font-size:12px}.pill.primary{background:#eef6ff;border-color:#bfdbfe;color:#1d4ed8;font-weight:700}
+
+.app{display:grid;grid-template-columns:64px 1fr 320px;height:calc(100vh - 54px);transition:grid-template-columns .18s ease}
+.app.sidebar-minimized{grid-template-columns:64px 1fr 44px}
+.lefttools{background:#fafbfc;border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:10px;padding:10px 8px;overflow:hidden}
+.toolbtn{width:44px;height:44px;border-radius:12px;border:1px solid #d7deea;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.toolbtn.active{border-color:var(--accent);box-shadow:0 0 0 3px rgba(31,156,255,.14)}
+.toolbtn.wire-active{border-color:#22c55e;background:#ecfdf5;box-shadow:0 0 0 4px rgba(34,197,94,.22)}
+
+.main{position:relative;overflow:hidden;cursor:default}
+.main.panning{cursor:grabbing}
+.toolbar{position:absolute;left:18px;top:14px;display:flex;gap:8px;z-index:40}
+.toolbar button{border:1px solid #d4dbe6;background:#fff;color:#324154;border-radius:10px;padding:8px 12px;cursor:pointer;box-shadow:var(--shadow)}
+.status{position:absolute;left:18px;right:18px;bottom:14px;background:rgba(255,255,255,.94);border:1px solid #d9dfeb;border-radius:14px;padding:10px 14px;z-index:40;box-shadow:var(--shadow);font-size:12px;color:var(--muted)}
+.status strong{color:#243042;margin-right:10px}
+#workspace{position:absolute;inset:0;transform-origin:0 0;overflow:visible}
+.stage{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);overflow:visible}
+.board{position:relative;width:1040px;height:610px;background:var(--board);border:1px solid var(--edge);border-radius:16px;box-shadow:0 25px 70px rgba(59,76,100,.18),inset 0 0 0 4px #ecebe3;overflow:visible}
+#wireLayer{position:absolute;inset:0;overflow:visible;pointer-events:none;z-index:20}
+.center-cut{position:absolute;left:34px;right:34px;top:285px;height:32px;background:#ddddcf;border-radius:8px;box-shadow:inset 0 1px 4px rgba(0,0,0,.08);z-index:1;pointer-events:none}
+.rail{position:absolute;left:26px;right:26px;height:78px;border-radius:12px;background:#ecebe3;border:1px solid #d8d6cb}
+.rail.top{top:18px}.rail.bottom{bottom:18px}
+.rail .stripe{position:absolute;left:58px;right:58px;height:3px;border-radius:999px}
+.rail .stripe.red{top:14px;background:var(--red)}.rail .stripe.blue{bottom:14px;background:var(--blue)}
+.railholes{position:absolute;left:88px;width:812px;display:grid;grid-template-columns:repeat(30,18px);gap:0 9px;z-index:3}
+.railholes.red{top:5px}.railholes.blue{bottom:5px}
+.cols{position:absolute;left:114px;width:812px;display:grid;grid-template-columns:repeat(30,1fr);font-size:11px;color:#6a7484;text-align:center}
+.cols.top{top:104px}.cols.bottom{bottom:104px}
+.rows{position:absolute;left:72px;width:26px;display:grid;grid-template-rows:repeat(5,1fr);font-size:12px;color:#6a7484;font-weight:700;text-align:center}
+.rows.top{top:148px;height:124px}.rows.bottom{top:348px;height:124px}
+.holes{position:absolute;left:114px;width:812px;display:grid;grid-template-columns:repeat(30,18px);grid-template-rows:repeat(5,18px);gap:8px 9px}
+.holes.top{top:146px}.holes.bottom{top:348px}
+.hole{width:10px;height:10px;margin:4px;border-radius:50%;background:var(--hole);box-shadow:inset 0 1px 2px rgba(255,255,255,.15),inset 0 -1px 2px rgba(0,0,0,.35);cursor:pointer;position:relative;z-index:4}
+.hole:hover,.hole.hover{outline:2px solid rgba(31,156,255,.6);outline-offset:3px}
+.hole.ghost-pin-target{outline:2px solid rgba(245,158,11,.9);outline-offset:3px;box-shadow:0 0 0 5px rgba(245,158,11,.16),inset 0 1px 2px rgba(255,255,255,.15),inset 0 -1px 2px rgba(0,0,0,.35)}
+.hole.wire-start{outline:2px solid rgba(34,197,94,.9);outline-offset:3px}
+.mark{position:absolute;font-size:12px;font-weight:700;z-index:4}.mark.plus{color:var(--red)}.mark.minus{color:var(--blue)}
+.m1{left:34px;top:26px}.m2{left:34px;top:60px}.m3{left:34px;bottom:60px}.m4{left:34px;bottom:26px}
+
+.part{position:absolute;z-index:70;cursor:move;user-select:none;transform-origin:0 0;overflow:visible}
+.part svg,.ghost svg{overflow:visible}
+.part.selected{outline:2px dashed #f6c238;outline-offset:5px;border-radius:8px;z-index:90}
+.pin{position:absolute;width:13px;height:13px;border-radius:50%;transform:translate(-50%,-50%);border:2px solid #1f2937;background:#f8fafc;box-shadow:0 1px 3px rgba(0,0,0,.2);z-index:35;cursor:crosshair}
+.pin:hover,.pin.wire-start{box-shadow:0 0 0 4px rgba(34,197,94,.22)}
+.part-text{position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:3px;background:rgba(255,255,255,.82);padding:1px 5px;border-radius:5px;text-align:center;line-height:1.2;white-space:nowrap;font-size:11px;color:#374151}
+.part-text .value{color:#0f766e}
+.wire-path{fill:none;stroke-width:5;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 2px 2px rgba(0,0,0,.18));pointer-events:none}
+.wire-hit{fill:none;stroke:transparent;stroke-width:18;pointer-events:stroke;cursor:pointer}
+.wire-selected{filter:drop-shadow(0 0 6px rgba(255,193,7,.95))}
+.wire-end-handle{fill:#fff;stroke:#f59e0b;stroke-width:3;filter:drop-shadow(0 2px 4px rgba(0,0,0,.25));cursor:grab;pointer-events:all}
+.wire-end-handle:hover{fill:#fff7ed;stroke-width:4}
+.pin{touch-action:none}
+.pin.drag-hint{box-shadow:0 0 0 4px rgba(245,158,11,.22)}
+.part-pin-root{filter:drop-shadow(0 1px 2px rgba(0,0,0,.22))}
+.part-lead-under{stroke:#fff;stroke-width:9;stroke-linecap:round;stroke-linejoin:round;opacity:.96}
+.part-lead{stroke:#1f9cff;stroke-width:3.6;stroke-linecap:round;stroke-linejoin:round;fill:none}
+.part-lead-hot{stroke:#f59e0b;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:5 5;opacity:.9}
+.part-port-stub{stroke:#dbeafe;stroke-width:7;stroke-linecap:round;opacity:.98}
+.part-lead-guide{stroke:#f59e0b;stroke-width:2;stroke-dasharray:4 4;opacity:.7}
+.part-contact{fill:#ffffff;stroke:#0f172a;stroke-width:2.4;filter:drop-shadow(0 1px 2px rgba(0,0,0,.22))}
+.pin-label-svg{font-size:9px;font-weight:700;fill:#334155;paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round}
+.temp-wire{fill:none;stroke:#22c55e;stroke-width:3;stroke-dasharray:7 6;stroke-linecap:round;pointer-events:none}
+.ghost{position:absolute;z-index:100;pointer-events:none;opacity:.65;filter:drop-shadow(0 6px 12px rgba(0,0,0,.12));transform-origin:0 0;overflow:visible}
+.ghost.hidden{display:none}
+
+.sidebar{background:#fbfcfe;border-left:1px solid var(--line);padding:12px;overflow:auto;transition:padding .18s ease}
+.sidebar.collapsed{padding:8px 4px;overflow:hidden}
+.sidebar.collapsed .section{display:none}
+.sidebar.collapsed #componentSection{display:block;padding:6px 3px;margin:0;border-radius:10px;text-align:center}
+.sidebar.collapsed #componentSection .grid{display:none}
+.sidebar.collapsed #componentSection h3{margin:0;justify-content:center}
+.sidebar.collapsed #componentTitle{display:none}
+.sidebar.collapsed #componentMinBtn{writing-mode:vertical-rl;padding:8px 4px;min-height:96px}
+.section{background:#fff;border:1px solid #e2e7ef;border-radius:14px;padding:12px;margin-bottom:12px}
+.section h3{margin:0 0 10px;font-size:13px;color:#4a5566;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.section-toggle{border:1px solid #d4dbe6;background:#fff;border-radius:8px;padding:4px 8px;font-size:11px;cursor:pointer;color:#516071}
+.section.minimized .grid{display:none}
+.section.minimized{padding-bottom:8px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.component{border:1px solid #dde5f0;border-radius:12px;background:#fff;padding:8px;cursor:pointer;min-height:92px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;text-align:center}
+.component.active{border-color:var(--accent);box-shadow:0 0 0 3px rgba(31,156,255,.12)}
+.component:hover{border-color:#b8c5d6;background:#fbfdff}
+.component svg{width:76px;height:44px}.component b{font-size:12px}.component span{font-size:11px;color:#718096}
+.inspector,.parts-list{font-size:12px;color:#516071}.muted{color:#7b8797}
+.field{margin-bottom:10px}.field label{display:block;margin-bottom:5px;font-size:11px;color:#728195}
+.field input,.field select{width:100%;border:1px solid #d7deea;border-radius:10px;padding:8px;background:#fff;color:#263244}
+.checkrow{display:flex;align-items:center;gap:8px;margin:8px 0}.checkrow input{width:auto}
+.action-row{display:flex;gap:8px;flex-wrap:wrap}.action-row button{border:1px solid #d4dbe6;background:#fff;padding:8px 10px;border-radius:10px;cursor:pointer}
+.parts-list .item{padding:9px 0;border-bottom:1px solid #eef2f7;display:flex;justify-content:space-between;gap:10px}
+.parts-list button{border:1px solid #dbe3ee;background:#fff;border-radius:8px;padding:4px 8px;cursor:pointer;font-size:11px}
+.kbd{display:inline-flex;min-width:22px;justify-content:center;padding:2px 6px;border-radius:6px;border:1px solid #cfd7e4;background:#fff;font-size:11px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><span class="brand-mark" aria-hidden="true"><span class="trace"></span><span class="node n1"></span><span class="node n2"></span><span class="node n3"></span></span><span class="brand-name"><strong>Breadboard Studio</strong><small>circuit workspace</small></span></div>
+  <div class="spacer"></div><button class="pill">コード</button><button class="pill primary">シミュレーションを開始</button>
+</div>
+<div class="app" id="app">
+  <aside class="lefttools" id="leftTools">
+    <button class="toolbtn active" id="selectTool" title="選択">🖱️</button>
+    <button class="toolbtn" id="moveTool" title="移動">✥</button>
+    <button class="toolbtn" id="wireTool" title="配線">〰️</button>
+    <button class="toolbtn" id="rotateTool" title="回転">⟳</button>
+    <button class="toolbtn" id="deleteTool" title="削除">🗑️</button>
+    <button class="toolbtn" id="zoomInTool" title="拡大">＋</button>
+    <button class="toolbtn" id="zoomOutTool" title="縮小">－</button>
+  </aside>
+  <main class="main" id="main">
+    <div class="toolbar">
+      <button id="saveBtn">JSON保存</button><button id="loadBtn">JSON読込</button><button id="clearBtn">全消去</button><button id="netlistBtn">LTspiceネットリスト表示</button><button id="importNetlistBtn">LTspiceネットリスト入力</button>
+      <input type="file" id="loadFile" accept="application/json" hidden>
+    </div>
+    <div id="workspace">
+      <div class="stage">
+        <div class="board" id="board">
+          <svg id="wireLayer"></svg>
+          <div class="rail top"><div class="stripe red"></div><div class="stripe blue"></div><div class="railholes red" id="topRed"></div><div class="railholes blue" id="topBlue"></div></div>
+          <div class="rail bottom"><div class="stripe red"></div><div class="stripe blue"></div><div class="railholes red" id="bottomRed"></div><div class="railholes blue" id="bottomBlue"></div></div>
+          <div class="center-cut"></div>
+          <div class="mark plus m1">＋</div><div class="mark minus m2">－</div><div class="mark plus m3">＋</div><div class="mark minus m4">－</div>
+          <div class="cols top" id="topCols"></div><div class="cols bottom" id="bottomCols"></div>
+          <div class="rows top" id="topRows"></div><div class="rows bottom" id="bottomRows"></div>
+          <div class="holes top" id="holesTop"></div><div class="holes bottom" id="holesBottom"></div>
+        </div>
+      </div>
+    </div>
+    <div class="ghost hidden" id="ghost"></div>
+    <div class="status"><strong id="statusTitle">準備完了</strong><span id="statusText">右の素子を選び、ブレッドボードの穴をクリックして配置します。</span></div>
+  </main>
+  <aside class="sidebar">
+    <div class="section" id="componentSection"><h3><span id="componentTitle">コンポーネント</span> <button class="section-toggle" id="componentMinBtn" type="button">最小化</button></h3><div class="grid" id="componentGrid"></div></div>
+    <div class="section"><h3>選択中</h3><div class="inspector" id="inspector"><div class="muted">部品または配線をクリックしてください。</div></div></div>
+    <div class="section"><h3>配置済み</h3><div class="parts-list" id="partsList"></div></div>
+    <div class="section"><h3>使い方</h3><div class="inspector">部品カードをクリック → 穴をクリック。端子・穴を2回クリックで配線。Shiftクリックで複数選択。<br><span class="kbd">R</span> 配置ゴースト・選択部品の回転 / <span class="kbd">Del</span> 削除 / <span class="kbd">Esc</span> キャンセル / LTspiceネットリスト表示でコピー用テキストを表示 / LTspiceネットリスト入力で自動配線</div></div>
+  </aside>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+const board = document.getElementById('board');
+const workspace = document.getElementById('workspace');
+const app = document.getElementById('app');
+const sidebar = document.querySelector('.sidebar');
+const main = document.getElementById('main');
+const wireLayer = document.getElementById('wireLayer');
+const ghost = document.getElementById('ghost');
+const componentGrid = document.getElementById('componentGrid');
+const componentSection = document.getElementById('componentSection');
+const componentMinBtn = document.getElementById('componentMinBtn');
+const inspector = document.getElementById('inspector');
+const partsList = document.getElementById('partsList');
+const statusTitle = document.getElementById('statusTitle');
+const statusText = document.getElementById('statusText');
+const selectTool = document.getElementById('selectTool');
+const moveTool = document.getElementById('moveTool');
+const wireTool = document.getElementById('wireTool');
+const rotateTool = document.getElementById('rotateTool');
+const deleteTool = document.getElementById('deleteTool');
+const zoomInTool = document.getElementById('zoomInTool');
+const zoomOutTool = document.getElementById('zoomOutTool');
+const saveBtn = document.getElementById('saveBtn');
+const loadBtn = document.getElementById('loadBtn');
+const clearBtn = document.getElementById('clearBtn');
+const netlistBtn = document.getElementById('netlistBtn');
+const importNetlistBtn = document.getElementById('importNetlistBtn');
+const loadFile = document.getElementById('loadFile');
+const topRed = document.getElementById('topRed');
+const topBlue = document.getElementById('topBlue');
+const bottomRed = document.getElementById('bottomRed');
+const bottomBlue = document.getElementById('bottomBlue');
+const topCols = document.getElementById('topCols');
+const bottomCols = document.getElementById('bottomCols');
+const topRows = document.getElementById('topRows');
+const bottomRows = document.getElementById('bottomRows');
+const holesTop = document.getElementById('holesTop');
+const holesBottom = document.getElementById('holesBottom');
+
+const svgNS='http://www.w3.org/2000/svg';
+const pitchX = 27;
+const pitchY = 26;
+const holeMap = new Map();
+
+const state = {
+  parts: [],
+  wires: [],
+  selected: null,
+  multiSelected: [],
+  mode: 'select',
+  placingType: null,
+  placingRot: 0,
+  wireStart: null,
+  scale: 1,
+  panX: 0,
+  panY: 0,
+  isPanning: false,
+  seq: 1,
+  tempMouse: null,
+  suppressConnectorClick: false,
+  history: [],
+  redoStack: [],
+  isRestoring: false
+};
+
+const defs = {
+  led:{
+    name:'ダイオード', hint:'A/K 2端子', value:'1N4148', w:100, h:50, anchor:['A'], pins:[{n:'A',x:8,y:25,dx:0,dy:0},{n:'K',x:89,y:25,dx:3,dy:0}],
+    icon:()=>`<svg viewBox="0 0 100 50"><line x1="8" y1="25" x2="34" y2="25" stroke="#8d99aa" stroke-width="4"/><line x1="66" y1="25" x2="92" y2="25" stroke="#8d99aa" stroke-width="4"/><path d="M34 12 L62 25 L34 38 Z" fill="#f8fafc" stroke="#334155" stroke-width="3"/><line x1="66" y1="12" x2="66" y2="38" stroke="#334155" stroke-width="4"/></svg>`,
+    render:()=>`<svg width="100" height="50" viewBox="0 0 100 50"><line x1="8" y1="25" x2="34" y2="25" stroke="#98a3b3" stroke-width="4"/><line x1="66" y1="25" x2="92" y2="25" stroke="#98a3b3" stroke-width="4"/><path d="M34 12 L62 25 L34 38 Z" fill="#f8fafc" stroke="#334155" stroke-width="3"/><line x1="66" y1="12" x2="66" y2="38" stroke="#334155" stroke-width="4"/><text x="21" y="17" text-anchor="middle" fill="#334155" font-size="10" font-weight="700">A</text><text x="79" y="17" text-anchor="middle" fill="#334155" font-size="10" font-weight="700">K</text></svg>`
+  },
+  resistor:{
+    name:'抵抗', hint:'2端子', value:'220Ω', w:126, h:48, anchor:['1'], pins:[{n:'1',x:8,y:24,dx:0,dy:0},{n:'2',x:116,y:24,dx:4,dy:0}],
+    icon:()=>`<svg viewBox="0 0 126 48"><line x1="8" y1="24" x2="30" y2="24" stroke="#919db0" stroke-width="4"/><rect x="30" y="16" width="66" height="16" rx="8" fill="#d9b075" stroke="#c0914b"/><line x1="96" y1="24" x2="118" y2="24" stroke="#919db0" stroke-width="4"/></svg>`,
+    render:()=>`<svg width="126" height="48" viewBox="0 0 126 48"><line x1="8" y1="24" x2="30" y2="24" stroke="#98a3b3" stroke-width="4"/><rect x="30" y="16" width="66" height="16" rx="8" fill="#d9b075" stroke="#c0914b"/><rect x="46" y="16" width="4" height="16" fill="#111827"/><rect x="56" y="16" width="4" height="16" fill="#ef4444"/><rect x="66" y="16" width="4" height="16" fill="#f59e0b"/><line x1="96" y1="24" x2="118" y2="24" stroke="#98a3b3" stroke-width="4"/></svg>`
+  },
+  capacitor:{
+    name:'コンデンサ', hint:'穴2つ幅', value:'10µF', w:58, h:84, anchor:['1'], pins:[{n:'1',x:15,y:76,dx:0,dy:0},{n:'2',x:42,y:76,dx:1,dy:0}],
+    icon:()=>`<svg viewBox="0 0 58 84"><rect x="14" y="8" width="30" height="48" rx="8" fill="#38bdf8" stroke="#0284c7"/><line x1="15" y1="56" x2="15" y2="80" stroke="#8f9cae" stroke-width="3"/><line x1="42" y1="56" x2="42" y2="80" stroke="#8f9cae" stroke-width="3"/><text x="29" y="36" text-anchor="middle" fill="#fff" font-size="14">C</text></svg>`,
+    render:()=>`<svg width="58" height="84" viewBox="0 0 58 84"><rect x="14" y="8" width="30" height="48" rx="8" fill="#38bdf8" stroke="#0284c7"/><line x1="15" y1="56" x2="15" y2="80" stroke="#8f9cae" stroke-width="3"/><line x1="42" y1="56" x2="42" y2="80" stroke="#8f9cae" stroke-width="3"/><text x="29" y="36" text-anchor="middle" fill="#fff" font-size="14">C</text></svg>`
+  },
+  inductor:{
+    name:'インダクタ', hint:'コイル', value:'10mH', w:126, h:48, anchor:['1'], pins:[{n:'1',x:8,y:24,dx:0,dy:0},{n:'2',x:116,y:24,dx:4,dy:0}],
+    icon:()=>`<svg viewBox="0 0 126 48"><line x1="8" y1="24" x2="22" y2="24" stroke="#919db0" stroke-width="4"/><path d="M22 24c0-15 16-15 16 0c0-15 16-15 16 0c0-15 16-15 16 0c0-15 16-15 16 0" fill="none" stroke="#a16207" stroke-width="5"/><line x1="86" y1="24" x2="118" y2="24" stroke="#919db0" stroke-width="4"/></svg>`,
+    render:()=>`<svg width="126" height="48" viewBox="0 0 126 48"><line x1="8" y1="24" x2="22" y2="24" stroke="#98a3b3" stroke-width="4"/><path d="M22 24c0-15 16-15 16 0c0-15 16-15 16 0c0-15 16-15 16 0c0-15 16-15 16 0" fill="none" stroke="#a16207" stroke-width="5"/><line x1="86" y1="24" x2="118" y2="24" stroke="#98a3b3" stroke-width="4"/></svg>`
+  },
+  battery:{
+    name:'電池', hint:'電源', value:'5V', w:126, h:58, anchor:['+'], pins:[{n:'+',x:8,y:29,dx:0,dy:0},{n:'-',x:116,y:29,dx:4,dy:0}],
+    icon:()=>`<svg viewBox="0 0 126 58"><rect x="20" y="13" width="74" height="32" rx="7" fill="#334155"/><rect x="94" y="22" width="10" height="14" fill="#94a3b8"/><text x="34" y="34" fill="#f87171" font-size="16" font-weight="700">+</text><text x="67" y="34" fill="#60a5fa" font-size="16" font-weight="700">−</text></svg>`,
+    render:()=>`<svg width="126" height="58" viewBox="0 0 126 58"><line x1="8" y1="29" x2="20" y2="29" stroke="#98a3b3" stroke-width="4"/><line x1="104" y1="29" x2="116" y2="29" stroke="#98a3b3" stroke-width="4"/><rect x="20" y="13" width="74" height="32" rx="7" fill="#334155" stroke="#cbd5e1" stroke-width="2"/><rect x="94" y="22" width="10" height="14" fill="#94a3b8"/><text x="34" y="34" fill="#f87171" font-size="16" font-weight="700">+</text><text x="67" y="34" fill="#60a5fa" font-size="16" font-weight="700">−</text></svg>`
+  },
+  current:{
+    name:'電流源', hint:'電流源', value:'1mA', w:126, h:58, anchor:['+'], pins:[{n:'+',x:8,y:29,dx:0,dy:0},{n:'-',x:116,y:29,dx:4,dy:0}],
+    icon:()=>`<svg viewBox="0 0 126 58"><line x1="8" y1="29" x2="30" y2="29" stroke="#919db0" stroke-width="4"/><circle cx="63" cy="29" r="20" fill="#f8fafc" stroke="#334155" stroke-width="3"/><path d="M63 41 V19 M55 27 l8-8 l8 8" fill="none" stroke="#0f172a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><line x1="96" y1="29" x2="118" y2="29" stroke="#919db0" stroke-width="4"/></svg>`,
+    render:()=>`<svg width="126" height="58" viewBox="0 0 126 58"><line x1="8" y1="29" x2="30" y2="29" stroke="#98a3b3" stroke-width="4"/><circle cx="63" cy="29" r="20" fill="#f8fafc" stroke="#334155" stroke-width="3"/><path d="M63 41 V19 M55 27 l8-8 l8 8" fill="none" stroke="#0f172a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><text x="44" y="20" fill="#ef4444" font-size="12" font-weight="700">+</text><text x="78" y="42" fill="#3b82f6" font-size="12" font-weight="700">−</text><line x1="96" y1="29" x2="116" y2="29" stroke="#98a3b3" stroke-width="4"/></svg>`
+  },
+  switch:{
+    name:'スイッチ', hint:'ON/OFF', value:'SPST', w:118, h:52, anchor:['1'], pins:[{n:'1',x:8,y:32,dx:0,dy:0},{n:'2',x:116,y:32,dx:4,dy:0}],
+    icon:()=>`<svg viewBox="0 0 118 52"><line x1="8" y1="32" x2="35" y2="32" stroke="#919db0" stroke-width="4"/><line x1="80" y1="32" x2="108" y2="32" stroke="#919db0" stroke-width="4"/><circle cx="36" cy="32" r="5"/><circle cx="80" cy="32" r="5"/><line x1="42" y1="28" x2="76" y2="12" stroke="#22c55e" stroke-width="4"/></svg>`,
+    render:()=>`<svg width="118" height="52" viewBox="0 0 118 52"><line x1="8" y1="32" x2="35" y2="32" stroke="#98a3b3" stroke-width="4"/><line x1="80" y1="32" x2="116" y2="32" stroke="#98a3b3" stroke-width="4"/><circle cx="36" cy="32" r="5"/><circle cx="80" cy="32" r="5"/><line x1="42" y1="28" x2="76" y2="12" stroke="#22c55e" stroke-width="4"/></svg>`
+  },
+  custombox:{
+    name:'その他素子', hint:'名前付きボックス', value:'', w:126, h:64, anchor:['1'], pins:[{n:'1',x:8,y:32,dx:0,dy:0},{n:'2',x:116,y:32,dx:4,dy:0}],
+    icon:()=>`<svg viewBox="0 0 126 64"><line x1="8" y1="32" x2="28" y2="32" stroke="#919db0" stroke-width="4"/><rect x="28" y="12" width="70" height="40" rx="6" fill="#f8fafc" stroke="#475569" stroke-width="3"/><line x1="98" y1="32" x2="118" y2="32" stroke="#919db0" stroke-width="4"/><text x="63" y="37" text-anchor="middle" fill="#334155" font-size="13" font-weight="700">その他</text></svg>`,
+    render:()=>`<svg width="126" height="64" viewBox="0 0 126 64"><line x1="8" y1="32" x2="28" y2="32" stroke="#98a3b3" stroke-width="4"/><rect x="28" y="12" width="70" height="40" rx="6" fill="#f8fafc" stroke="#475569" stroke-width="3"/><line x1="98" y1="32" x2="118" y2="32" stroke="#98a3b3" stroke-width="4"/><text x="63" y="37" text-anchor="middle" fill="#334155" font-size="13" font-weight="700">その他</text></svg>`
+  },
+  npn:{
+    name:'NPNトランジスタ', hint:'C/B/E', value:'2N2222', w:92, h:94, anchor:['C'], pins:[{n:'C',x:19,y:86,dx:0,dy:0},{n:'B',x:46,y:86,dx:1,dy:0},{n:'E',x:73,y:86,dx:2,dy:0}],
+    icon:()=>`<svg viewBox="0 0 92 94"><rect x="25" y="10" width="42" height="52" rx="8" fill="#2c2f34"/><text x="46" y="39" text-anchor="middle" fill="#fff" font-size="20" font-weight="700">N</text><line x1="19" y1="62" x2="19" y2="90" stroke="#8f9cae" stroke-width="4"/><line x1="46" y1="62" x2="46" y2="90" stroke="#8f9cae" stroke-width="4"/><line x1="73" y1="62" x2="73" y2="90" stroke="#8f9cae" stroke-width="4"/></svg>`,
+    render:()=>`<svg width="92" height="94" viewBox="0 0 92 94"><rect x="25" y="10" width="42" height="52" rx="8" fill="#2c2f34" stroke="#6b7280" stroke-width="2"/><text x="46" y="39" text-anchor="middle" fill="#fff" font-size="20" font-weight="700">N</text><text x="46" y="54" text-anchor="middle" fill="#cbd5e1" font-size="8">C B E</text><line x1="19" y1="62" x2="19" y2="90" stroke="#8f9cae" stroke-width="4"/><line x1="46" y1="62" x2="46" y2="90" stroke="#8f9cae" stroke-width="4"/><line x1="73" y1="62" x2="73" y2="90" stroke="#8f9cae" stroke-width="4"/></svg>`
+  },
+  pnp:{
+    name:'PNPトランジスタ', hint:'C/B/E', value:'2N3906', w:92, h:94, anchor:['C'], pins:[{n:'C',x:19,y:86,dx:0,dy:0},{n:'B',x:46,y:86,dx:1,dy:0},{n:'E',x:73,y:86,dx:2,dy:0}],
+    icon:()=>`<svg viewBox="0 0 92 94"><rect x="25" y="10" width="42" height="52" rx="8" fill="#40444b"/><text x="46" y="39" text-anchor="middle" fill="#fff" font-size="20" font-weight="700">P</text><line x1="19" y1="62" x2="19" y2="90" stroke="#8f9cae" stroke-width="4"/><line x1="46" y1="62" x2="46" y2="90" stroke="#8f9cae" stroke-width="4"/><line x1="73" y1="62" x2="73" y2="90" stroke="#8f9cae" stroke-width="4"/></svg>`,
+    render:()=>`<svg width="92" height="94" viewBox="0 0 92 94"><rect x="25" y="10" width="42" height="52" rx="8" fill="#40444b" stroke="#6b7280" stroke-width="2"/><text x="46" y="39" text-anchor="middle" fill="#fff" font-size="20" font-weight="700">P</text><text x="46" y="54" text-anchor="middle" fill="#cbd5e1" font-size="8">C B E</text><line x1="19" y1="62" x2="19" y2="90" stroke="#8f9cae" stroke-width="4"/><line x1="46" y1="62" x2="46" y2="90" stroke="#8f9cae" stroke-width="4"/><line x1="73" y1="62" x2="73" y2="90" stroke="#8f9cae" stroke-width="4"/></svg>`
+  }
+};
+
+function status(a,b){statusTitle.textContent=a; statusText.textContent=b;}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+function addHole(parent,node){
+  const h=document.createElement('div');
+  h.className='hole';
+  h.dataset.node=node;
+  h.title=node;
+  h.addEventListener('click',e=>{
+    e.stopPropagation();
+    if(state.placingType) placeAt(node,state.placingType,boardPoint(e));
+    else connectorClick({kind:'hole',node});
+  });
+  parent.appendChild(h);
+  holeMap.set(node,h);
+}
+
+function initBoard(){
+  for(let i=1;i<=30;i++){
+    const a=document.createElement('div'); a.textContent=i; topCols.appendChild(a);
+    const b=document.createElement('div'); b.textContent=i; bottomCols.appendChild(b);
+  }
+  ['j','i','h','g','f'].forEach(r=>{
+    const row=document.createElement('div'); row.textContent=r; topRows.appendChild(row);
+    for(let c=1;c<=30;c++) addHole(holesTop,r+c);
+  });
+  ['e','d','c','b','a'].forEach(r=>{
+    const row=document.createElement('div'); row.textContent=r; bottomRows.appendChild(row);
+    for(let c=1;c<=30;c++) addHole(holesBottom,r+c);
+  });
+  for(let c=1;c<=30;c++){
+    addHole(topRed,'TR+'+c); addHole(topBlue,'TR-'+c);
+    addHole(bottomRed,'BR+'+c); addHole(bottomBlue,'BR-'+c);
+  }
+}
+
+function initPalette(){
+  Object.keys(defs).forEach(type=>{
+    const d=defs[type];
+    const el=document.createElement('div');
+    el.className='component';
+    el.dataset.type=type;
+    el.innerHTML=d.icon()+`<div><b>${d.name}</b><br><span>${d.hint}</span></div>`;
+    el.addEventListener('click',()=>startPlace(type));
+    componentGrid.appendChild(el);
+  });
+}
+
+function holeCenter(node){
+  const h=holeMap.get(node);
+  if(!h) return null;
+  const hr=h.getBoundingClientRect();
+  const br=board.getBoundingClientRect();
+  return {x:(hr.left+hr.width/2-br.left)/state.scale,y:(hr.top+hr.height/2-br.top)/state.scale};
+}
+
+function boardPoint(e){
+  const br=board.getBoundingClientRect();
+  return {x:(e.clientX-br.left)/state.scale,y:(e.clientY-br.top)/state.scale};
+}
+
+function nearestHole(x,y,max=42){
+  let best=null,dist=max;
+  holeMap.forEach((_,n)=>{
+    const p=holeCenter(n);
+    if(!p) return;
+    const d=Math.hypot(p.x-x,p.y-y);
+    if(d<dist){dist=d; best={node:n,x:p.x,y:p.y};}
+  });
+  return best;
+}
+
+function placementSnapRadius(type){
+  // ブレッドボード中央の溝は上下の穴からやや離れている。
+  // 配置中だけスナップ探索範囲を広げ、溝上でトランジスタなどのゴーストが消えないようにする。
+  return (type==='npn'||type==='pnp') ? 92 : 78;
+}
+
+function nodeParts(node){
+  const m=String(node).match(/^(.*?)(\d+)$/);
+  if(!m) return null;
+  return {prefix:m[1],col:Number(m[2])};
+}
+
+function nodesFor(anchor,type,rot=0){
+  const d=defs[type];
+  const base=nodeParts(anchor);
+  if(!base) return null;
+  const out={};
+  for(const pin of d.pins){
+    let col = base.col + (rot===180 ? -pin.dx : pin.dx);
+    const node = base.prefix + col;
+    if(!holeMap.has(node)) return null;
+    out[pin.n]=node;
+  }
+  return out;
+}
+
+function partFromAnchor(type,anchor,rot=0){
+  const d=defs[type];
+  const pinNodes=nodesFor(anchor,type,rot);
+  if(!pinNodes) return null;
+  const first=d.pins[0];
+  const p0=holeCenter(pinNodes[first.n]);
+  if(!p0) return null;
+  return {
+    type, rot,
+    x:p0.x-first.x,
+    y:p0.y-first.y,
+    pinNodes
+  };
+}
+
+function nearestValidAnchor(type, preferredAnchor, rot=0, maxDist=42){
+  const preferred=holeCenter(preferredAnchor);
+  const preferredParts=nodeParts(preferredAnchor);
+  let best=null;
+  let bestScore=Infinity;
+  holeMap.forEach((_,node)=>{
+    const nodeInfo=nodeParts(node);
+    if(!nodeInfo) return;
+    // まず同じ穴列グループを優先する。抵抗などを右端近くへ置く時は、
+    // 2本目の足が入る最も近い有効な穴へ自動補正する。
+    const sameGroup=preferredParts && nodeInfo.prefix===preferredParts.prefix;
+    const part=partFromAnchor(type,node,rot);
+    if(!part) return;
+    const pt=holeCenter(node);
+    if(!pt) return;
+    const dist=preferred ? Math.hypot(pt.x-preferred.x,pt.y-preferred.y) : 0;
+    if(Number.isFinite(maxDist) && dist>maxDist) return;
+    const score=dist + (sameGroup ? 0 : 10000);
+    if(score<bestScore){bestScore=score; best={node, part};}
+  });
+  return best;
+}
+
+function startPlace(type){
+  state.placingType=type;
+  state.placingRot=0;
+  state.mode='place';
+  clearSelection();
+  state.wireStart=null;
+  updateButtons();
+  status('配置モード',`${defs[type].name}を選択中です。ブレッドボード上をクリックしてください。既存の素子の上でも近くの穴へ配置できます。`);
+  render();
+}
+
+
+function rotatePartObject(part){
+  ensureLayout(part);
+  const pins=pinDefs(part);
+  const abs=pins.map(pin=>({n:pin.n,x:part.x+pin.x,y:part.y+pin.y}));
+  const cx=abs.reduce((sum,pin)=>sum+pin.x,0)/abs.length;
+  const cy=abs.reduce((sum,pin)=>sum+pin.y,0)/abs.length;
+  const rotated=abs.map(pin=>({n:pin.n,x:cx-(pin.y-cy),y:cy+(pin.x-cx)}));
+  const minX=Math.min(...rotated.map(pin=>pin.x));
+  const minY=Math.min(...rotated.map(pin=>pin.y));
+  part.x=minX-8;
+  part.y=minY-8;
+  part.pinLayout=part.pinLayout||{};
+  rotated.forEach(pin=>{part.pinLayout[pin.n]={x:pin.x-part.x,y:pin.y-part.y};});
+  part.rot=((Number(part.rot)||0)+90)%360;
+  normalizePartLayout(part);
+  updatePinNodesFromPositions(part);
+}
+
+function rotatePartAroundPin(part,pivotPinName){
+  ensureLayout(part);
+  const pivot=pinDefs(part).find(pin=>pin.n===pivotPinName) || pinDefs(part)[0];
+  if(!pivot) return;
+  const layout={};
+  pinDefs(part).forEach(pin=>{
+    const dx=pin.x-pivot.x;
+    const dy=pin.y-pivot.y;
+    layout[pin.n]={x:pivot.x-dy,y:pivot.y+dx};
+  });
+  part.pinLayout=layout;
+  part.rot=((Number(part.rot)||0)+90)%360;
+  normalizePartLayout(part);
+  updatePinNodesFromPositions(part);
+}
+
+function placedPartFromAnchor(type,anchor,rot=0,maxFallbackDist=42){
+  let part=partFromAnchor(type,anchor,0);
+  if(!part){
+    const fallback=nearestValidAnchor(type,anchor,0,maxFallbackDist);
+    if(fallback) part=fallback.part;
+  }
+  if(!part) return null;
+  ensureLayout(part);
+  const anchorPin=defs[type].pins[0]?.n;
+  const turns=Math.round(((((Number(rot)||0)%360)+360)%360)/90);
+  for(let i=0;i<turns;i++) rotatePartAroundPin(part,anchorPin);
+  return part;
+}
+
+function centerPartOnPoint(part,point){
+  if(!part || !point) return;
+  ensureLayout(part);
+  normalizePartLayout(part);
+  const ex=visualExtents(part);
+  const centerX=(ex.minX+ex.maxX)/2;
+  const centerY=(ex.minY+ex.maxY)/2;
+  part.x=point.x-centerX;
+  part.y=point.y-centerY;
+  updatePinNodesFromPositions(part);
+}
+
+function placementPreviewPart(type,anchor,point,rot=0){
+  const part=placedPartFromAnchor(type,anchor,rot);
+  if(!part) return null;
+  centerPartOnPoint(part,point);
+  return part;
+}
+
+function placementCandidate(type,anchor=null,point=null,rot=0){
+  // ゴースト、光る穴、確定配置をすべて同じ計算にそろえる。
+  // カーソル中心ではなく、ゴースト上の基準ピン位置から実際に刺さる穴を決める。
+  const snapPoint=point || state.tempMouse || (anchor ? holeCenter(anchor) : null);
+  let previewAnchor=anchor;
+  if(snapPoint){
+    const nearCenter=nearestHole(snapPoint.x,snapPoint.y,placementSnapRadius(type));
+    if(nearCenter) previewAnchor=nearCenter.node;
+  }
+  if(!previewAnchor) return null;
+
+  const preview=placementPreviewPart(type,previewAnchor,snapPoint || holeCenter(previewAnchor),rot);
+  let snapAnchor=previewAnchor;
+  if(preview){
+    const anchorPinName=defs[type].pins[0]?.n;
+    const anchorPin=pinDefs(preview).find(pin=>pin.n===anchorPinName) || pinDefs(preview)[0];
+    if(anchorPin){
+      const pinAbs={x:preview.x+anchorPin.x,y:preview.y+anchorPin.y};
+      const nearPin=nearestHole(pinAbs.x,pinAbs.y,placementSnapRadius(type));
+      if(nearPin) snapAnchor=nearPin.node;
+    }
+  }
+
+  let part=placedPartFromAnchor(type,snapAnchor,rot,34);
+  if(!part){
+    const fallback=nearestValidAnchor(type,snapAnchor,rot,34);
+    if(fallback){
+      snapAnchor=fallback.node;
+      part=placedPartFromAnchor(type,fallback.node,rot,34) || fallback.part;
+    }
+  }
+  return {preview,snapAnchor,part};
+}
+
+function placeAt(anchor,type,point=null){
+  const candidate=placementCandidate(type,anchor,point,state.placingRot||0);
+  let part=candidate?.part || null;
+  if(!part){
+    status('配置できません','ゴーストの端子近くに入る穴がありません。少し穴に近づけてください。');
+    return;
+  }
+  pushHistory();
+  part.id='P'+state.seq++;
+  part.label=defs[type].name;
+  part.value=defs[type].value;
+  part.showLabel=true;
+  part.showValue=true;
+  ensureLayout(part);
+  normalizePartLayout(part);
+  state.parts.push(part);
+  selectOnly('part',part.id);
+  state.placingType=null;
+  state.placingRot=0;
+  state.mode='select';
+  updateButtons();
+  status('配置完了',`${part.label} を近くの穴にフィットして配置しました。`);
+  render();
+}
+
+function pinPoint(part,pinName){
+  const pin=pinDefs(part).find(p=>p.n===pinName);
+  return {x:part.x+pin.x,y:part.y+pin.y};
+}
+
+function connectorPoint(c){
+  if(c.kind==='hole') return holeCenter(c.node) || {x:0,y:0};
+  const p=state.parts.find(x=>x.id===c.partId);
+  return p ? pinPoint(p,c.pin) : {x:0,y:0};
+}
+
+function label(c){return c.kind==='hole'?c.node:`${c.partId}.${c.pin}`;}
+
+function sameConnector(a,b){
+  if(!a||!b||a.kind!==b.kind) return false;
+  if(a.kind==='hole') return a.node===b.node;
+  return a.partId===b.partId && a.pin===b.pin;
+}
+
+function selKey(sel){return sel ? `${sel.kind}:${sel.id}` : '';}
+function isSelected(kind,id){return state.multiSelected.some(s=>s.kind===kind&&s.id===id);}
+function syncPrimarySelection(){state.selected=state.multiSelected.length ? {...state.multiSelected[state.multiSelected.length-1]} : null;}
+function selectOnly(kind,id){state.multiSelected=[{kind,id}];syncPrimarySelection();}
+function toggleSelect(kind,id){
+  const i=state.multiSelected.findIndex(s=>s.kind===kind&&s.id===id);
+  if(i>=0) state.multiSelected.splice(i,1); else state.multiSelected.push({kind,id});
+  syncPrimarySelection();
+}
+function selectFromEvent(e,kind,id){
+  if(e && e.shiftKey) toggleSelect(kind,id); else selectOnly(kind,id);
+}
+function clearSelection(){state.selected=null;state.multiSelected=[];}
+function selectedPartIds(){return state.multiSelected.filter(s=>s.kind==='part').map(s=>s.id);}
+function selectedWireIds(){return state.multiSelected.filter(s=>s.kind==='wire').map(s=>s.id);}
+function selectionCount(){return state.multiSelected.length;}
+
+function snapshotState(){
+  return JSON.stringify({
+    parts: state.parts,
+    wires: state.wires,
+    selected: state.selected,
+    multiSelected: state.multiSelected,
+    seq: state.seq,
+    mode: state.mode,
+    placingType: state.placingType,
+    placingRot: state.placingRot,
+    wireStart: state.wireStart
+  });
+}
+
+function restoreSnapshot(snap){
+  try{
+    const d=JSON.parse(snap);
+    state.parts=Array.isArray(d.parts)?d.parts:[];
+    state.parts.forEach(part=>ensureLayout(part));
+    state.wires=Array.isArray(d.wires)?d.wires:[];
+    state.selected=d.selected||null;
+    state.multiSelected=Array.isArray(d.multiSelected)?d.multiSelected:[];
+    state.seq=Number(d.seq)||1;
+    state.mode=d.mode||'select';
+    state.placingType=d.placingType||null;
+    state.placingRot=Number(d.placingRot)||0;
+    state.wireStart=d.wireStart||null;
+    updateButtons();
+    render();
+    return true;
+  }catch(err){
+    console.error(err);
+    return false;
+  }
+}
+
+function pushHistory(){
+  if(state.isRestoring) return;
+  const snap=snapshotState();
+  if(state.history[state.history.length-1]!==snap){
+    state.history.push(snap);
+    if(state.history.length>80) state.history.shift();
+  }
+  state.redoStack=[];
+}
+
+function undoAction(){
+  if(!state.history.length){status('戻せません','これ以上戻る履歴がありません。');return;}
+  const current=snapshotState();
+  const prev=state.history.pop();
+  state.redoStack.push(current);
+  state.isRestoring=true;
+  restoreSnapshot(prev);
+  state.isRestoring=false;
+  status('元に戻しました','Ctrl+Shift+Zでやり直せます。');
+}
+
+function redoAction(){
+  if(!state.redoStack.length){status('やり直せません','これ以上やり直す履歴がありません。');return;}
+  const current=snapshotState();
+  const next=state.redoStack.pop();
+  state.history.push(current);
+  state.isRestoring=true;
+  restoreSnapshot(next);
+  state.isRestoring=false;
+  status('やり直しました','Ctrl+Zで元に戻せます。');
+}
+
+function attachHoleWiresToPartPins(partIds){
+  // 部品をドラッグする直前に、その部品の端子位置に来ている配線端を
+  // 必ず「穴」ではなく「部品ピン」へ付け替える。
+  // これにより、素子本体をドラッグしても線の端がピンに刺さったまま追従する。
+  const pinTargets=[];
+  partIds.forEach(pid=>{
+    const part=state.parts.find(x=>x.id===pid);
+    if(!part) return;
+    ensureLayout(part);
+    pinDefs(part).forEach(pin=>{
+      const abs=pinPoint(part,pin.n);
+      const node=part.pinNodes?.[pin.n];
+      pinTargets.push({
+        partId:part.id,
+        pin:pin.n,
+        node,
+        x:abs.x,
+        y:abs.y,
+        connector:{kind:'pin',partId:part.id,pin:pin.n}
+      });
+    });
+  });
+  if(!pinTargets.length) return;
+
+  state.wires.forEach(w=>{
+    ['from','to'].forEach(side=>{
+      const c=w[side];
+      if(!c) return;
+      let target=null;
+
+      if(c.kind==='hole'){
+        target=pinTargets.find(t=>t.node && t.node===c.node);
+        if(!target){
+          const hp=holeCenter(c.node);
+          if(hp){
+            // 閾値を 6px に絞り、ピッチ(27px)より十分小さくして隣接部品への誤マッチを防ぐ。
+            target=pinTargets.find(t=>Math.hypot(t.x-hp.x,t.y-hp.y)<=6);
+          }
+        }
+      }else if(c.kind==='pin'){
+        target=pinTargets.find(t=>t.partId===c.partId && t.pin===c.pin);
+      }
+
+      if(target){
+        w[side]={...target.connector};
+      }
+    });
+  });
+}
+
+function clonePins(type){
+  return defs[type].pins.map(pin=>({...pin}));
+}
+
+function pinDefs(part){
+  const base=clonePins(part.type);
+  if(part.pinLayout){
+    base.forEach(pin=>{
+      if(part.pinLayout[pin.n]){
+        pin.x=Number(part.pinLayout[pin.n].x);
+        pin.y=Number(part.pinLayout[pin.n].y);
+      }
+    });
+  }
+  return base;
+}
+
+function syncPartToHoles(part){
+  const basePins=defs[part.type].pins;
+  const first=basePins[0];
+  const firstNode=part.pinNodes?.[first.n];
+  const firstCenter=holeCenter(firstNode);
+  if(!firstCenter) return false;
+
+  const layout={};
+  let minX=Infinity,minY=Infinity;
+  basePins.forEach(pin=>{
+    const c=holeCenter(part.pinNodes?.[pin.n]);
+    const x=c ? first.x+(c.x-firstCenter.x) : pin.x;
+    const y=c ? first.y+(c.y-firstCenter.y) : pin.y;
+    layout[pin.n]={x,y};
+    minX=Math.min(minX,x); minY=Math.min(minY,y);
+  });
+
+  const shiftX=minX<8 ? 8-minX : 0;
+  const shiftY=minY<8 ? 8-minY : 0;
+  Object.keys(layout).forEach(k=>{layout[k].x+=shiftX; layout[k].y+=shiftY;});
+  part.pinLayout=layout;
+  part.x=firstCenter.x-layout[first.n].x;
+  part.y=firstCenter.y-layout[first.n].y;
+  return true;
+}
+
+function isTransistor(part){return part && (part.type==='npn'||part.type==='pnp');}
+function isTwoPin(part){return part && defs[part.type] && defs[part.type].pins.length===2;}
+function leadDefaults(type){
+  return {
+    resistor:[22,22], led:[23,23], inductor:[14,32], battery:[12,12], current:[22,22], switch:[27,36], capacitor:[24,24], custombox:[20,20]
+  }[type] || [20,20];
+}
+
+function ensureLayout(part){
+  if(!part.pinLayout){
+    part.pinLayout={};
+    defs[part.type].pins.forEach(pin=>part.pinLayout[pin.n]={x:pin.x,y:pin.y});
+  }
+  if(isTwoPin(part)){
+    const dflt=leadDefaults(part.type);
+    if(part.leadA==null) part.leadA=dflt[0];
+    if(part.leadB==null) part.leadB=dflt[1];
+  }
+  if(part.leadLength==null && isTransistor(part)) part.leadLength=28;
+  if(isTransistor(part) && !part.pinOrder) part.pinOrder='CBE';
+  if(part.bodyShiftX==null) part.bodyShiftX=0;
+  if(part.bodyShiftY==null) part.bodyShiftY=0;
+}
+
+function bodyShift(part){
+  return {x:Number(part.bodyShiftX)||0,y:Number(part.bodyShiftY)||0};
+}
+
+function transistorPhysicalOrder(part){
+  return pinDefs(part).slice().sort((a,b)=>a.x-b.x).map(p=>p.n).join('');
+}
+
+function setTransistorOrder(part, order){
+  if(!isTransistor(part) || !/^[CBE]{3}$/.test(order) || new Set(order).size!==3) return;
+  ensureLayout(part);
+  const physical=pinDefs(part).map(pin=>({x:pin.x,y:pin.y,node:part.pinNodes?.[pin.n]})).sort((a,b)=>a.x-b.x);
+  const layout={...part.pinLayout};
+  const nodes={...(part.pinNodes||{})};
+  order.split('').forEach((name,i)=>{
+    layout[name]={x:physical[i].x,y:physical[i].y};
+    if(physical[i].node) nodes[name]=physical[i].node;
+  });
+  part.pinLayout=layout;
+  part.pinNodes=nodes;
+  part.pinOrder=order;
+}
+
+function updatePinNodesFromPositions(part){
+  part.pinNodes=part.pinNodes||{};
+  pinDefs(part).forEach(pin=>{
+    const near=nearestHole(part.x+pin.x,part.y+pin.y,18);
+    if(near) part.pinNodes[pin.n]=near.node;
+    else delete part.pinNodes[pin.n];
+  });
+}
+
+function leadDir(part){
+  const r=((Number(part.rot)||0)%360+360)%360;
+  if(r===90) return {x:1,y:0,side:'right'};
+  if(r===180) return {x:0,y:-1,side:'top'};
+  if(r===270) return {x:-1,y:0,side:'left'};
+  return {x:0,y:1,side:'bottom'};
+}
+
+function sideBodyGeometry(part, bodyW, bodyH, gap=26){
+  const pins=pinDefs(part);
+  const dir=leadDir(part);
+  const perp={x:-dir.y,y:dir.x};
+  const avg={x:pins.reduce((s,p)=>s+p.x,0)/pins.length,y:pins.reduce((s,p)=>s+p.y,0)/pins.length};
+  const shift=bodyShift(part);
+  const bodyCx=avg.x-dir.x*(gap+bodyW/2)+shift.x;
+  const bodyCy=avg.y-dir.y*(gap+bodyH/2)+shift.y;
+  const roots=pins.map(pin=>{
+    const along=(pin.x-avg.x)*perp.x+(pin.y-avg.y)*perp.y;
+    return {n:pin.n,x:bodyCx+perp.x*along+dir.x*bodyW/2,y:bodyCy+perp.y*along+dir.y*bodyH/2,pin};
+  });
+  const angle={bottom:0,right:90,top:180,left:270}[dir.side]||0;
+  return {pins,dir,perp,avg,bodyCx,bodyCy,bodyW,bodyH,roots,angle};
+}
+
+function visualExtents(part){
+  ensureLayout(part);
+  const pins=pinDefs(part);
+  const pts=[];
+  pins.forEach(pin=>pts.push({x:pin.x,y:pin.y}));
+  if(part.type==='capacitor'){
+    const g=sideBodyGeometry(part,30,48,28);
+    pts.push({x:g.bodyCx-g.bodyW/2-8,y:g.bodyCy-g.bodyH/2-8},{x:g.bodyCx+g.bodyW/2+8,y:g.bodyCy+g.bodyH/2+8});
+    g.roots.forEach(r=>pts.push({x:r.x,y:r.y}));
+  }else if(isTransistor(part)){
+    const g=sideBodyGeometry(part,48,56,30);
+    pts.push({x:g.bodyCx-g.bodyW/2-10,y:g.bodyCy-g.bodyH/2-10},{x:g.bodyCx+g.bodyW/2+10,y:g.bodyCy+g.bodyH/2+10});
+    g.roots.forEach(r=>pts.push({x:r.x,y:r.y}));
+  }else if(isTwoPin(part)){
+    const a=pins[0], b=pins[1];
+    const dx=b.x-a.x, dy=b.y-a.y;
+    const len=Math.max(1,Math.hypot(dx,dy));
+    const ux=dx/len, uy=dy/len;
+    const bodyLen=Math.min(({led:30,resistor:66,inductor:64,battery:74,switch:44,custombox:70}[part.type]||44), Math.max(8,len-2));
+    const bodyH=part.type==='battery'?32:part.type==='switch'?38:part.type==='led'?30:26;
+    const shift=bodyShift(part);
+    const cx=(a.x+b.x)/2+shift.x, cy=(a.y+b.y)/2+shift.y;
+    const px=-uy, py=ux;
+    pts.push({x:cx+ux*bodyLen/2+px*bodyH/2+10,y:cy+uy*bodyLen/2+py*bodyH/2+10});
+    pts.push({x:cx-ux*bodyLen/2-px*bodyH/2-10,y:cy-uy*bodyLen/2-py*bodyH/2-10});
+    pts.push({x:cx+ux*bodyLen/2-px*bodyH/2+10,y:cy+uy*bodyLen/2-py*bodyH/2+10});
+    pts.push({x:cx-ux*bodyLen/2+px*bodyH/2-10,y:cy-uy*bodyLen/2+py*bodyH/2-10});
+  }
+  return {
+    minX:Math.min(...pts.map(p=>p.x)), minY:Math.min(...pts.map(p=>p.y)),
+    maxX:Math.max(...pts.map(p=>p.x)), maxY:Math.max(...pts.map(p=>p.y))
+  };
+}
+
+function partBounds(part){
+  const ex=visualExtents(part);
+  // 足・本体・端子ラベルが中央の溝付近や回転後に SVG 枠で切れないよう、
+  // 余白を広めに確保する。実際の座標は normalizePartLayout 側で正方向へ寄せる。
+  const pad=72;
+  return {w:Math.ceil(ex.maxX+pad),h:Math.ceil(ex.maxY+pad)};
+}
+
+
+function parseResistanceOhms(text){
+  let s=String(text||'').trim();
+  if(!s) return 220;
+  s=s.replace(/[ΩΩ]/g,'').replace(/オーム/g,'').replace(/ohms?/ig,'').replace(/\s+/g,'').replace(/,/g,'.');
+  s=s.replace(/キロ/ig,'k').replace(/メガ/ig,'M');
+  const m=s.match(/^([0-9]*\.?[0-9]+)([kKmM])?/);
+  if(!m) return 220;
+  let v=Number(m[1]);
+  if(!Number.isFinite(v) || v<=0) return 220;
+  const unit=m[2];
+  if(unit==='k' || unit==='K') v*=1000;
+  if(unit==='m' || unit==='M') v*=1000000;
+  return v;
+}
+
+function resistorBandColors(valueText){
+  const digitColors=['#111827','#7c2d12','#ef4444','#f97316','#facc15','#16a34a','#2563eb','#7c3aed','#6b7280','#f8fafc'];
+  const multiplierColors={
+    '-2':'#c0c0c0','-1':'#d4af37','0':'#111827','1':'#7c2d12','2':'#ef4444','3':'#f97316','4':'#facc15',
+    '5':'#16a34a','6':'#2563eb','7':'#7c3aed','8':'#6b7280','9':'#f8fafc'
+  };
+  const ohms=parseResistanceOhms(valueText);
+  let exp=Math.floor(Math.log10(ohms));
+  let sig=Math.round(ohms/Math.pow(10,exp-1));
+  if(sig>=100){sig=Math.round(sig/10); exp+=1;}
+  if(sig<10){sig*=10; exp-=1;}
+  const d1=Math.floor(sig/10);
+  const d2=sig%10;
+  let mult=exp-1;
+  if(mult<-2 || mult>9 || d1<0 || d1>9 || d2<0 || d2>9){
+    return ['#ef4444','#ef4444','#7c2d12','#d4af37'];
+  }
+  return [digitColors[d1],digitColors[d2],multiplierColors[String(mult)]||'#111827','#d4af37'];
+}
+
+function resistorBandSvg(part,bodyLen,bodyH){
+  const bands=resistorBandColors(part.value);
+  const bw=Math.max(3,Math.min(5,bodyLen*.07));
+  const xs=[-.25,-.08,.10,.34].map(v=>v*bodyLen);
+  return bands.map((fill,i)=>`<rect x="${xs[i]-bw/2}" y="${-bodyH/2}" width="${bw}" height="${bodyH}" fill="${fill}" stroke="rgba(0,0,0,.18)" stroke-width=".4"/>`).join('');
+}
+
+function leadSvgLine(x1,y1,x2,y2){
+  return `<line class="part-lead-under" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`+
+         `<line class="part-lead" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
+}
+
+function leadSvgCurve(x1,y1,c1x,c1y,c2x,c2y,x2,y2){
+  const d=`M ${x1} ${y1} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${x2} ${y2}`;
+  return `<path class="part-lead-under" d="${d}"/>`+
+         `<path class="part-lead" d="${d}"/>`;
+}
+
+function leadContact(x,y,extra=''){
+  return `<circle class="part-contact" cx="${x}" cy="${y}" r="5.3" ${extra}/>`;
+}
+
+function linePartSvg(part){
+  const pins=pinDefs(part);
+  const a=pins[0], b=pins[1];
+  const bounds=partBounds(part);
+  const dx=b.x-a.x, dy=b.y-a.y;
+  const len=Math.max(1,Math.hypot(dx,dy));
+  const ux=dx/len, uy=dy/len;
+  const naturalBody={led:30,resistor:66,inductor:64,battery:74,current:54,switch:44}[part.type] || 44;
+  const bodyLen=Math.min(naturalBody, Math.max(8, len-2));
+  const shift=bodyShift(part);
+  const bodyStart={x:(a.x+b.x)/2-ux*bodyLen/2+shift.x,y:(a.y+b.y)/2-uy*bodyLen/2+shift.y};
+  const bodyEnd={x:(a.x+b.x)/2+ux*bodyLen/2+shift.x,y:(a.y+b.y)/2+uy*bodyLen/2+shift.y};
+  const cx=(bodyStart.x+bodyEnd.x)/2, cy=(bodyStart.y+bodyEnd.y)/2;
+  const angle=Math.atan2(dy,dx)*180/Math.PI;
+  const bodyH=part.type==='battery'?32:part.type==='current'?40:part.type==='switch'?20:part.type==='led'?26:16;
+  let body='';
+  if(part.type==='led'){
+    body=`<g transform="translate(${cx} ${cy}) rotate(${angle})"><path d="M -14 -13 L 12 0 L -14 13 Z" fill="#f8fafc" stroke="#334155" stroke-width="3"/><line x1="16" y1="-14" x2="16" y2="14" stroke="#334155" stroke-width="4"/></g>`;
+  }else if(part.type==='resistor'){
+    const bands=resistorBandSvg(part,bodyLen,bodyH);
+    body=`<g transform="translate(${cx} ${cy}) rotate(${angle})"><rect x="${-bodyLen/2}" y="${-bodyH/2}" width="${bodyLen}" height="${bodyH}" rx="8" fill="#d9b075" stroke="#c0914b"/>${bands}</g>`;
+  }else if(part.type==='inductor'){
+    const coilW=Math.max(44,bodyLen);
+    body=`<g transform="translate(${cx} ${cy}) rotate(${angle})"><path d="M ${-coilW/2} 0 c0 -15 16 -15 16 0 c0 -15 16 -15 16 0 c0 -15 16 -15 16 0 c0 -15 16 -15 16 0" fill="none" stroke="#a16207" stroke-width="5"/></g>`;
+  }else if(part.type==='battery'){
+    body=`<g transform="translate(${cx} ${cy}) rotate(${angle})"><rect x="${-bodyLen/2}" y="-16" width="${bodyLen}" height="32" rx="7" fill="#334155" stroke="#cbd5e1" stroke-width="2"/><rect x="${bodyLen/2}" y="-7" width="10" height="14" fill="#94a3b8"/><text x="${-bodyLen/4}" y="5" fill="#f87171" font-size="16" font-weight="700">+</text><text x="${bodyLen/4}" y="5" fill="#60a5fa" font-size="16" font-weight="700">−</text></g>`;
+  }else if(part.type==='current'){
+    body=`<g transform="translate(${cx} ${cy}) rotate(${angle})"><circle cx="0" cy="0" r="20" fill="#f8fafc" stroke="#334155" stroke-width="3"/><path d="M 0 12 V -12 M -8 -4 L 0 -12 L 8 -4" fill="none" stroke="#0f172a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><text x="-18" y="-14" fill="#ef4444" font-size="12" font-weight="700">+</text><text x="14" y="18" fill="#3b82f6" font-size="12" font-weight="700">−</text></g>`;
+  }else if(part.type==='switch'){
+    body=`<g transform="translate(${cx} ${cy}) rotate(${angle})"><circle cx="${-bodyLen/2}" cy="0" r="5"/><circle cx="${bodyLen/2}" cy="0" r="5"/><line x1="${-bodyLen/2+6}" y1="-4" x2="${bodyLen/2-4}" y2="-18" stroke="#22c55e" stroke-width="4"/></g>`;
+  }else if(part.type==='custombox'){
+    const title=esc(part.label||'その他');
+    const sub=esc(part.value||'');
+    body=`<g transform="translate(${cx} ${cy}) rotate(${angle})"><rect x="${-bodyLen/2}" y="-21" width="${bodyLen}" height="42" rx="7" fill="#f8fafc" stroke="#475569" stroke-width="3"/><text x="0" y="${sub?-3:5}" text-anchor="middle" fill="#334155" font-size="13" font-weight="700">${title}</text>${sub?`<text x="0" y="14" text-anchor="middle" fill="#0f766e" font-size="10">${sub}</text>`:''}</g>`;
+  }else{
+    return defs[part.type].render();
+  }
+  const roots='';
+  const contacts=leadContact(a.x,a.y)+leadContact(b.x,b.y);
+  const leads=leadSvgLine(a.x,a.y,bodyStart.x,bodyStart.y)+leadSvgLine(bodyEnd.x,bodyEnd.y,b.x,b.y);
+  return `<svg width="${bounds.w}" height="${bounds.h}" viewBox="0 0 ${bounds.w} ${bounds.h}">${leads}${body}${roots}${contacts}</svg>`;
+}
+
+function capacitorSvg(part){
+  const g=sideBodyGeometry(part,30,48,28);
+  const bounds=partBounds(part);
+  const pinItems=g.pins.map(pin=>{
+    const side=((pin.x-g.avg.x)*g.perp.x+(pin.y-g.avg.y)*g.perp.y)>=0 ? 1 : -1;
+    return {
+      pin,
+      x:g.bodyCx+g.perp.x*side*(g.bodyW/2+2)+g.dir.x*(g.bodyH/2-7),
+      y:g.bodyCy+g.perp.y*side*(g.bodyW/2+2)+g.dir.y*(g.bodyH/2-7)
+    };
+  });
+  const leads=pinItems.map(r=>{
+    const c1x=r.pin.x-g.dir.x*22, c1y=r.pin.y-g.dir.y*22;
+    const c2x=r.x+g.dir.x*20, c2y=r.y+g.dir.y*20;
+    return leadSvgCurve(r.pin.x,r.pin.y,c1x,c1y,c2x,c2y,r.x,r.y);
+  }).join('');
+  const roots='';
+  const contacts=pinItems.map(r=>leadContact(r.pin.x,r.pin.y, 'stroke="#0284c7"')).join('');
+  const body=`<g transform="translate(${g.bodyCx} ${g.bodyCy}) rotate(${g.angle})"><rect x="${-g.bodyW/2}" y="${-g.bodyH/2}" width="${g.bodyW}" height="${g.bodyH}" rx="8" fill="#38bdf8" stroke="#0284c7" stroke-width="2"/><text x="0" y="5" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">C</text><line x1="${-g.bodyW/2+7}" y1="${g.bodyH/2}" x2="${g.bodyW/2-7}" y2="${g.bodyH/2}" stroke="#bae6fd" stroke-width="2"/></g>`;
+  return `<svg width="${bounds.w}" height="${bounds.h}" viewBox="0 0 ${bounds.w} ${bounds.h}">${leads}${body}${roots}${contacts}</svg>`;
+}
+
+function twoPinSvg(part){
+  if(part.type==='capacitor') return capacitorSvg(part);
+  return linePartSvg(part);
+}
+
+function transistorSvg(part){
+  const g=sideBodyGeometry(part,48,56,30);
+  const bounds=partBounds(part);
+  const fill=part.type==='npn'?'#2c2f34':'#40444b';
+  const letter=part.type==='npn'?'N':'P';
+
+  // トランジスタは、端子を離れた穴へ動かした時でも本体側の足が
+  // 本体の縁に残るように、穴側の端子位置ではなく固定スロットへ接続する。
+  const visualAxis = Math.abs(g.dir.y) > 0 ? {x:1,y:0} : {x:0,y:1};
+  const visualSort = Math.abs(g.dir.y) > 0
+    ? ((a,b)=>a.x-b.x)
+    : ((a,b)=>a.y-b.y);
+  const slots = [-g.bodyW*0.32, 0, g.bodyW*0.32];
+  const fixedRoots = g.pins.slice().sort(visualSort).map((pin,i)=>({
+    n:pin.n,
+    pin,
+    x:g.bodyCx + g.dir.x*(g.bodyW/2) + visualAxis.x*slots[i],
+    y:g.bodyCy + g.dir.y*(g.bodyH/2) + visualAxis.y*slots[i]
+  }));
+  const rootsByName = new Map(fixedRoots.map(r=>[r.n,r]));
+  const rootsForDrawing = g.pins.map(pin=>rootsByName.get(pin.n));
+
+  const order=fixedRoots.map(r=>r.n).join(' ');
+  const leads=rootsForDrawing.map(r=>{
+    const dist=Math.hypot(r.pin.x-r.x,r.pin.y-r.y);
+    if(dist>44){
+      const c1x=r.pin.x-g.dir.x*28, c1y=r.pin.y-g.dir.y*28;
+      const c2x=r.x+g.dir.x*28, c2y=r.y+g.dir.y*28;
+      return leadSvgCurve(r.pin.x,r.pin.y,c1x,c1y,c2x,c2y,r.x,r.y);
+    }
+    return leadSvgLine(r.pin.x,r.pin.y,r.x,r.y);
+  }).join('');
+  const stubs=rootsForDrawing.map(r=>`<line class="part-port-stub" x1="${r.x-g.dir.x*4}" y1="${r.y-g.dir.y*4}" x2="${r.x+g.dir.x*3}" y2="${r.y+g.dir.y*3}"/>`).join('');
+  const roots=rootsForDrawing.map(r=>`<text class="pin-label-svg" x="${r.x-g.dir.x*11}" y="${r.y-g.dir.y*11+3}" text-anchor="middle">${r.n}</text>`).join('');
+  const contacts=rootsForDrawing.map(r=>leadContact(r.pin.x,r.pin.y)).join('');
+  const body=`<g transform="translate(${g.bodyCx} ${g.bodyCy}) rotate(${g.angle})"><rect x="${-g.bodyW/2}" y="${-g.bodyH/2}" width="${g.bodyW}" height="${g.bodyH}" rx="9" fill="${fill}" stroke="#6b7280" stroke-width="2"/><text x="0" y="-2" text-anchor="middle" fill="#fff" font-size="20" font-weight="700">${letter}</text><text x="0" y="15" text-anchor="middle" fill="#cbd5e1" font-size="8">${order}</text></g>`;
+  return `<svg width="${bounds.w}" height="${bounds.h}" viewBox="0 0 ${bounds.w} ${bounds.h}">${leads}${body}${stubs}${roots}${contacts}</svg>`;
+}
+
+function partSvg(part){
+  if(['led','resistor','capacitor','inductor','battery','current','switch','custombox'].includes(part.type)) return twoPinSvg(part);
+  if(isTransistor(part)) return transistorSvg(part);
+  return defs[part.type].render();
+}
+
+function inputRow(id,labelText,value,type='text'){
+  return `<div class="field"><label>${labelText}</label><input id="${id}" type="${type}" value="${esc(value)}"></div>`;
+}
+
+function normalizePartLayout(part){
+  ensureLayout(part);
+  let ex=visualExtents(part);
+  const shiftX=ex.minX<8 ? 8-ex.minX : 0;
+  const shiftY=ex.minY<8 ? 8-ex.minY : 0;
+  if(shiftX||shiftY){
+    Object.keys(part.pinLayout).forEach(k=>{
+      part.pinLayout[k].x+=shiftX;
+      part.pinLayout[k].y+=shiftY;
+    });
+    part.x-=shiftX;
+    part.y-=shiftY;
+  }
+}
+
+function setPartPinAbsolute(part,pinName,absPoint,node){
+  ensureLayout(part);
+  part.pinLayout[pinName]={x:absPoint.x-part.x,y:absPoint.y-part.y};
+  part.pinNodes=part.pinNodes||{};
+  if(node) part.pinNodes[pinName]=node;
+  else delete part.pinNodes[pinName];
+  normalizePartLayout(part);
+}
+
+function startPinDrag(e,partId,pinName){
+  if(state.mode==='wire' || state.wireStart) return;
+  pushHistory();
+  e.preventDefault();
+  e.stopPropagation();
+  const part=state.parts.find(p=>p.id===partId);
+  if(!part) return;
+  selectOnly('part',partId);
+  let moved=false;
+  const start=boardPoint(e);
+  const original=pinPoint(part,pinName);
+  status('端子を移動','端子をドラッグして、移したい穴の近くで離してください。足の線もその場で伸び縮みします。');
+  function move(ev){
+    const now=boardPoint(ev);
+    if(Math.hypot(now.x-start.x,now.y-start.y)>3) moved=true;
+    const near=nearestHole(now.x,now.y,42);
+    const target=near ? {x:near.x,y:near.y,node:near.node} : {x:now.x,y:now.y,node:null};
+    setPartPinAbsolute(part,pinName,{x:target.x,y:target.y},target.node);
+    render();
+    if(target.node && holeMap.has(target.node)) holeMap.get(target.node).classList.add('hover');
+  }
+  function up(ev){
+    window.removeEventListener('mousemove',move);
+    window.removeEventListener('mouseup',up);
+    const now=boardPoint(ev);
+    const near=nearestHole(now.x,now.y,42);
+    if(near){
+      setPartPinAbsolute(part,pinName,{x:near.x,y:near.y},near.node);
+      status('端子を移動しました',`${partId}.${pinName} を ${near.node} に移動しました。`);
+    }else{
+      setPartPinAbsolute(part,pinName,original,part.pinNodes?.[pinName]);
+      status('端子移動を戻しました','近くに穴がなかったため、端子位置を元に戻しました。');
+    }
+    // moved フラグを同期的に参照できるよう、クリックイベントより先に処理する。
+    // setTimeout(0) は再描画タイミング次第でフラグが下りるのが遅れることがあったため廃止。
+    if(moved) state.suppressConnectorClick=true;
+    render();
+    // render() 後に同期でフラグを下ろすことで、直後の click イベントでのみ抑制が機能する。
+    state.suppressConnectorClick=false;
+  }
+  window.addEventListener('mousemove',move);
+  window.addEventListener('mouseup',up);
+}
+
+function startWireEndDrag(e,wireId,side){
+  pushHistory();
+  e.preventDefault();
+  e.stopPropagation();
+  const w=state.wires.find(x=>x.id===wireId);
+  if(!w) return;
+  const original={...w[side]};
+  selectOnly('wire',wireId);
+  status('配線端を移動','オレンジの丸をドラッグして、移したい穴の近くで離してください。');
+  function move(ev){
+    const p=boardPoint(ev);
+    const near=nearestHole(p.x,p.y,42);
+    if(near){
+      w[side]={kind:'hole',node:near.node};
+      drawWires();
+      updateInspector();
+      holeMap.forEach(h=>h.classList.remove('hover'));
+      holeMap.get(near.node)?.classList.add('hover');
+    }
+  }
+  function up(ev){
+    window.removeEventListener('mousemove',move);
+    window.removeEventListener('mouseup',up);
+    holeMap.forEach(h=>h.classList.remove('hover'));
+    const p=boardPoint(ev);
+    const near=nearestHole(p.x,p.y,42);
+    if(near){
+      w[side]={kind:'hole',node:near.node};
+      status('配線端を移動しました',`${side==='from'?'始点':'終点'}を ${near.node} に変更しました。`);
+    }else{
+      w[side]=original;
+      status('配線端移動を戻しました','近くに穴がなかったため、元の接続に戻しました。');
+    }
+    render();
+  }
+  window.addEventListener('mousemove',move);
+  window.addEventListener('mouseup',up);
+}
+
+
+function connectorClick(conn){
+  if(!state.wireStart){
+    state.wireStart=conn;
+    state.mode='wire';
+    updateButtons();
+    status('配線開始',`${label(conn)} から配線します。接続先をクリックしてください。`);
+    render();
+    return;
+  }
+  if(sameConnector(state.wireStart,conn)){
+    state.wireStart=null;
+    state.mode='wire';
+    updateButtons();
+    status('配線キャンセル','同じ場所をクリックしたためキャンセルしました。');
+    render();
+    return;
+  }
+  const colors=['#ef4444','#22c55e','#3b82f6','#f59e0b','#8b5cf6','#111827'];
+  pushHistory();
+  state.wires.push({id:'W'+state.seq++,from:{...state.wireStart},to:{...conn},color:colors[state.wires.length%colors.length]});
+  selectOnly('wire',state.wires[state.wires.length-1].id);
+  state.wireStart=null;
+  state.mode='wire';
+  updateButtons();
+  status('配線完了','配線しました。');
+  render();
+}
+
+function render(){
+  document.querySelectorAll('.part').forEach(e=>e.remove());
+  state.parts.forEach(p=>{
+    const d=defs[p.type];
+    ensureLayout(p);
+    // normalizePartLayout はここでは呼ばない。
+    // 毎 render で呼ぶと bodyShiftX/Y のドラッグ中に浮動小数点が累積してずれる。
+    // 正規化は配置・回転・ピン移動などの変更タイミングのみで行う。
+    const size=partBounds(p);
+    const el=document.createElement('div');
+    el.className='part'+(isSelected('part',p.id)?' selected':'');
+    el.dataset.id=p.id;
+    el.style.left=p.x+'px';
+    el.style.top=p.y+'px';
+    el.style.width=size.w+'px';
+    el.style.height=size.h+'px';
+    el.innerHTML=partSvg(p)+`<div class="part-text">${p.showLabel?`<div>${esc(p.label)}</div>`:''}${p.showValue?`<div class="value">${esc(p.value)}</div>`:''}</div>`;
+    pinDefs(p).forEach(pin=>{
+      const pe=document.createElement('div');
+      pe.className='pin'+(state.wireStart&&state.wireStart.kind==='pin'&&state.wireStart.partId===p.id&&state.wireStart.pin===pin.n?' wire-start':'');
+      pe.style.left=pin.x+'px';
+      pe.style.top=pin.y+'px';
+      pe.title=`${p.id}.${pin.n}`+(p.pinNodes?.[pin.n]?` / ${p.pinNodes[pin.n]}`:'');
+      pe.addEventListener('mousedown',e=>{
+        if(state.placingType){ e.preventDefault(); e.stopPropagation(); return; }
+        startPinDrag(e,p.id,pin.n);
+      });
+      pe.addEventListener('click',e=>{
+        e.stopPropagation();
+        if(state.placingType){
+          const bp=boardPoint(e);
+          const near=nearestHole(bp.x,bp.y,placementSnapRadius(state.placingType));
+          placeAt(near?.node||null,state.placingType,bp);
+          return;
+        }
+        if(state.suppressConnectorClick) return;
+        if(state.mode==='wire'||state.wireStart){connectorClick({kind:'pin',partId:p.id,pin:pin.n});}
+        else{selectFromEvent(e,'part',p.id); render();}
+      });
+      el.appendChild(pe);
+    });
+    el.addEventListener('click',e=>{
+      e.stopPropagation();
+      if(state.placingType){
+        const bp=boardPoint(e);
+        const near=nearestHole(bp.x,bp.y,placementSnapRadius(state.placingType));
+        placeAt(near?.node||null,state.placingType,bp);
+        return;
+      }
+      if(state.mode==='wire'||state.wireStart) return;
+      selectFromEvent(e,'part',p.id); render();
+    });
+    el.addEventListener('dblclick',e=>{e.stopPropagation(); rotatePart(p.id);});
+    el.addEventListener('mousedown',e=>{
+      if(state.placingType){ e.preventDefault(); e.stopPropagation(); return; }
+      if(state.mode==='wire'||state.wireStart) return;
+      if(!e.target.classList.contains('pin')) dragStart(e,p.id);
+    });
+    board.appendChild(el);
+  });
+  drawWires();
+  updateInspector();
+  updateList();
+  updateHoles();
+  updateGhost();
+}
+
+function updateHoles(){
+  holeMap.forEach((h,n)=>{
+    h.classList.toggle('wire-start',state.wireStart?.kind==='hole'&&state.wireStart.node===n);
+    h.classList.remove('hover','ghost-pin-target');
+  });
+  if(state.placingType&&state.tempMouse){
+    const candidate=placementCandidate(state.placingType,null,state.tempMouse,state.placingRot||0);
+    if(candidate?.part?.pinNodes){
+      Object.values(candidate.part.pinNodes).forEach(node=>{
+        const h=holeMap.get(node);
+        if(h) h.classList.add('hover','ghost-pin-target');
+      });
+    }else{
+      const near=nearestHole(state.tempMouse.x,state.tempMouse.y,placementSnapRadius(state.placingType));
+      if(near&&holeMap.has(near.node)) holeMap.get(near.node).classList.add('hover');
+    }
+  }
+}
+
+function drawWires(){
+  wireLayer.innerHTML='';
+  state.wires.forEach(w=>{
+    const a=connectorPoint(w.from), b=connectorPoint(w.to), m=(a.x+b.x)/2;
+    const d=`M ${a.x} ${a.y} C ${m} ${a.y}, ${m} ${b.y}, ${b.x} ${b.y}`;
+    const hit=document.createElementNS(svgNS,'path');
+    hit.setAttribute('d',d); hit.setAttribute('class','wire-hit');
+    hit.addEventListener('click',e=>{e.stopPropagation(); if(state.mode==='wire'||state.wireStart) return; selectFromEvent(e,'wire',w.id); render();});
+    wireLayer.appendChild(hit);
+    const path=document.createElementNS(svgNS,'path');
+    path.setAttribute('d',d); path.setAttribute('stroke',w.color);
+    path.setAttribute('class','wire-path'+(isSelected('wire',w.id)?' wire-selected':''));
+    wireLayer.appendChild(path);
+    if(state.selected?.kind==='wire' && state.selected.id===w.id){
+      [['from',a],['to',b]].forEach(([side,pt])=>{
+        const c=document.createElementNS(svgNS,'circle');
+        c.setAttribute('cx',pt.x); c.setAttribute('cy',pt.y); c.setAttribute('r',8);
+        c.setAttribute('class','wire-end-handle');
+        c.addEventListener('mousedown',e=>startWireEndDrag(e,w.id,side));
+        c.addEventListener('click',e=>e.stopPropagation());
+        wireLayer.appendChild(c);
+      });
+    }
+  });
+  if(state.wireStart&&state.tempMouse){
+    const a=connectorPoint(state.wireStart), b=state.tempMouse, m=(a.x+b.x)/2;
+    const d=`M ${a.x} ${a.y} C ${m} ${a.y}, ${m} ${b.y}, ${b.x} ${b.y}`;
+    const p=document.createElementNS(svgNS,'path');
+    p.setAttribute('d',d); p.setAttribute('class','temp-wire');
+    wireLayer.appendChild(p);
+  }
+}
+
+function updateGhost(){
+  if(!state.placingType||!state.tempMouse){
+    ghost.classList.add('hidden'); ghost.innerHTML=''; return;
+  }
+  const candidate=placementCandidate(state.placingType,null,state.tempMouse,state.placingRot||0);
+  const part=candidate?.preview;
+  if(!part){ghost.classList.add('hidden'); return;}
+  ensureLayout(part);
+  const size=partBounds(part);
+  const br=board.getBoundingClientRect();
+  const mr=main.getBoundingClientRect();
+  ghost.classList.remove('hidden');
+  // ゴーストで見えているピン位置と、光る穴・確定配置の計算を共通化した。
+  ghost.style.left=(br.left-mr.left+part.x*state.scale)+'px';
+  ghost.style.top=(br.top-mr.top+part.y*state.scale)+'px';
+  ghost.style.width=size.w+'px';
+  ghost.style.height=size.h+'px';
+  ghost.style.transform=`scale(${state.scale})`;
+  ghost.innerHTML=partSvg(part);
+}
+
+function dragStart(e,id){
+  pushHistory();
+  e.preventDefault();
+  const p=state.parts.find(x=>x.id===id);
+  if(!p) return;
+  if(e.shiftKey) toggleSelect('part',id); else if(!isSelected('part',id)) selectOnly('part',id);
+  const start=boardPoint(e);
+  const ids=isSelected('part',id) ? selectedPartIds() : [id];
+
+  if(state.mode==='move'){
+    attachHoleWiresToPartPins(ids);
+    const originals=ids.map(pid=>{
+      const part=state.parts.find(x=>x.id===pid);
+      if(!part) return null;
+      ensureLayout(part);
+      const out={id:pid,x:part.x,y:part.y,pinNodes:{...(part.pinNodes||{})}};
+      part.pinNodes={};
+      return out;
+    }).filter(Boolean);
+    status('移動中','部品全体を、配線が刺さったまま自由に移動します。穴への固定は外れます。');
+    function move(ev){
+      const now=boardPoint(ev);
+      const dx=now.x-start.x, dy=now.y-start.y;
+      originals.forEach(o=>{
+        const part=state.parts.find(x=>x.id===o.id);
+        if(part){ part.x=o.x+dx; part.y=o.y+dy; }
+      });
+      render();
+    }
+    function up(){
+      window.removeEventListener('mousemove',move);
+      window.removeEventListener('mouseup',up);
+      // ドロップ後、各部品のピン位置から最近傍穴を再スナップする。
+      // 穴が見つからなかったピンは元のpinNodesを維持してNC扱いにならないようにする。
+      originals.forEach(o=>{
+        const part=state.parts.find(x=>x.id===o.id);
+        if(!part) return;
+        const snapped={};
+        pinDefs(part).forEach(pin=>{
+          const near=nearestHole(part.x+pin.x,part.y+pin.y,30);
+          if(near) snapped[pin.n]=near.node;
+          else if(o.pinNodes[pin.n]) snapped[pin.n]=o.pinNodes[pin.n];
+        });
+        part.pinNodes=snapped;
+      });
+      status('移動完了', originals.length>1 ? `${originals.length}個の部品を配線ごと移動しました。` : '部品を配線ごと移動しました。');
+      render();
+    }
+    window.addEventListener('mousemove',move);
+    window.addEventListener('mouseup',up);
+    return;
+  }
+
+  // 通常の選択ツールでは、穴に刺さっているピン位置は動かさず、ボディだけを動かす。
+  // ピンへ接続した配線は pinPoint(part,pin) に固定されたままなので、線は外れず、足だけが伸び縮みする。
+  ids.forEach(pid=>{
+    const part=state.parts.find(x=>x.id===pid);
+    if(part) ensureLayout(part);
+  });
+  const originals=ids.map(pid=>{
+    const part=state.parts.find(x=>x.id===pid);
+    return part ? {id:pid,bodyShiftX:Number(part.bodyShiftX)||0,bodyShiftY:Number(part.bodyShiftY)||0} : null;
+  }).filter(Boolean);
+
+  function move(ev){
+    const now=boardPoint(ev);
+    const dx=now.x-start.x, dy=now.y-start.y;
+    originals.forEach(o=>{
+      const part=state.parts.find(x=>x.id===o.id);
+      if(part){
+        part.bodyShiftX=o.bodyShiftX+dx;
+        part.bodyShiftY=o.bodyShiftY+dy;
+        // ボディを大きく動かしてローカル座標の外へ出た場合でも、SVG の表示枠で切れないようにする。
+        normalizePartLayout(part);
+      }
+    });
+    render();
+  }
+  function up(){
+    window.removeEventListener('mousemove',move);
+    window.removeEventListener('mouseup',up);
+    originals.forEach(o=>{
+      const part=state.parts.find(x=>x.id===o.id);
+      if(part) normalizePartLayout(part);
+    });
+    status('ボディ移動完了', originals.length>1 ? `${originals.length}個の部品のボディだけを移動しました。ピンと配線はそのままです。` : '部品のボディだけを移動しました。ピンと配線はそのままです。');
+    render();
+  }
+  window.addEventListener('mousemove',move);
+  window.addEventListener('mouseup',up);
+}
+
+function rotatePart(id,doRender=true){
+  const p=state.parts.find(x=>x.id===id);
+  if(!p) return;
+  rotatePartObject(p);
+  if(doRender){
+    status('回転完了','選択中の部品を90度回転しました。もう一度 R でさらに回転できます。');
+    render();
+  }
+}
+
+
+function rotatePlacingGhost(){
+  if(!state.placingType) return false;
+  state.placingRot=((Number(state.placingRot)||0)+90)%360;
+  status('配置向きを回転',`${defs[state.placingType].name} のゴーストを90度回転しました。クリックするとその向きで配置します。`);
+  updateGhost();
+  return true;
+}
+
+function rotateSelected(){
+  if(rotatePlacingGhost()) return;
+  const ids=selectedPartIds();
+  if(!ids.length) return;
+  pushHistory();
+  ids.forEach(id=>rotatePart(id,false));
+  status('回転完了', ids.length>1 ? `${ids.length}個の部品を90度回転しました。` : '選択中の部品を90度回転しました。もう一度 R でさらに回転できます。');
+  render();
+}
+
+function updateInspector(){
+  if(selectionCount()>1){
+    inspector.innerHTML=`<div class="field"><label>複数選択</label><input value="${selectionCount()} 個を選択中" disabled></div><div class="muted">Shiftを押しながら部品や配線をクリックすると、選択に追加・解除できます。</div><div class="action-row" style="margin-top:10px"><button id="rotateMulti">部品を回転</button><button id="delMulti">選択を削除</button></div>`;
+    document.getElementById('rotateMulti').addEventListener('click',rotateSelected);
+    document.getElementById('delMulti').addEventListener('click',deleteSelected);
+    return;
+  }
+  if(!state.selected){
+    inspector.innerHTML='<div class="muted">部品または配線をクリックしてください。</div>';
+    return;
+  }
+  if(state.selected.kind==='part'){
+    const p=state.parts.find(x=>x.id===state.selected.id);
+    if(!p) return;
+    ensureLayout(p);
+    const pinRows=defs[p.type].pins.map(pin=>{
+      const node=p.pinNodes?.[pin.n]||'未固定';
+      return `<div class="field"><label>端子 ${pin.n}</label><input value="${esc(node)}" disabled></div>`;
+    }).join('');
+    const orderRow=isTransistor(p) ? `<div class="field"><label>C/B/E の左からの順番</label><select id="pinOrder">${['CBE','CEB','BCE','BEC','ECB','EBC'].map(o=>`<option value="${o}" ${((p.pinOrder||transistorPhysicalOrder(p))===o)?'selected':''}>${o.split('').join(' - ')}</option>`).join('')}</select></div>` : '';
+    inspector.innerHTML=`
+      <div class="field"><label>ID</label><input value="${p.id}" disabled></div>
+      ${inputRow('lab','ラベル',p.label)}
+      ${inputRow('val','値',p.value)}
+      ${p.type==='resistor'?'<div class="muted">例: 220Ω、4.7kΩ、1MΩ。入力値に合わせて抵抗のカラーコードが自動で変わります。</div>':''}
+      ${orderRow}
+      ${pinRows}
+      <label class="checkrow"><input id="showLab" type="checkbox" ${p.showLabel?'checked':''}>ラベルを表示</label>
+      <label class="checkrow"><input id="showVal" type="checkbox" ${p.showValue?'checked':''}>値を表示</label>
+      <div class="muted">選択ツール中に端子の丸い点をドラッグすると、足の線そのものが伸び縮みします。黒縁の白い点が穴側と本体側の接続点で、太いグレーの足が常に両方をつなぎます。</div>
+      <div class="action-row" style="margin-top:10px"><button id="snapPins">端子穴に合わせる</button><button id="del">削除</button></div>`;
+    const redraw=()=>render();
+    const repaintSelectedPart=()=>{
+      const el=board.querySelector(`.part[data-id="${p.id}"]`);
+      if(!el) return;
+      ensureLayout(p);
+      normalizePartLayout(p);
+      const size=partBounds(p);
+      el.style.left=p.x+'px';
+      el.style.top=p.y+'px';
+      el.style.width=size.w+'px';
+      el.style.height=size.h+'px';
+      const oldSvg=el.querySelector(':scope > svg');
+      if(oldSvg) oldSvg.outerHTML=partSvg(p);
+      const text=el.querySelector(':scope > .part-text');
+      if(text) text.innerHTML=`${p.showLabel?`<div>${esc(p.label)}</div>`:''}${p.showValue?`<div class="value">${esc(p.value)}</div>`:''}`;
+      drawWires();
+      updateList();
+    };
+    document.getElementById('lab').addEventListener('input',e=>{p.label=e.target.value;repaintSelectedPart();});
+    document.getElementById('val').addEventListener('input',e=>{p.value=e.target.value;repaintSelectedPart();});
+    if(document.getElementById('pinOrder')) document.getElementById('pinOrder').addEventListener('change',e=>{setTransistorOrder(p,e.target.value);redraw();});
+    document.getElementById('showLab').addEventListener('change',e=>{p.showLabel=e.target.checked;repaintSelectedPart();});
+    document.getElementById('showVal').addEventListener('change',e=>{p.showValue=e.target.checked;repaintSelectedPart();});
+    document.getElementById('snapPins').addEventListener('click',()=>{syncPartToHoles(p);redraw();});
+    document.getElementById('del').addEventListener('click',deleteSelected);
+  }else{
+    const w=state.wires.find(x=>x.id===state.selected.id);
+    if(!w) return;
+    inspector.innerHTML=`
+      <div class="field"><label>ID</label><input value="${w.id}" disabled></div>
+      <div class="field"><label>接続</label><input value="${label(w.from)} → ${label(w.to)}" disabled></div>
+      <div class="field"><label>色</label><input id="wc" type="color" value="${w.color}"></div>
+      <div class="muted">配線上のオレンジの丸をドラッグすると、始点・終点の穴を変更できます。配線モード中は配線作成を優先します。</div>
+      <div class="action-row" style="margin-top:10px"><button id="delw">削除</button></div>`;
+    document.getElementById('wc').addEventListener('input',e=>{w.color=e.target.value;drawWires();});
+    document.getElementById('delw').addEventListener('click',deleteSelected);
+  }
+}
+
+function updateList(){
+  if(!state.parts.length){partsList.innerHTML='<div class="muted">まだ部品はありません。</div>';return;}
+  partsList.innerHTML=state.parts.map(p=>`<div class="item"><div><strong>${p.id}</strong><br>${esc(p.label)} / ${esc(p.value)}</div><button data-id="${p.id}">選択</button></div>`).join('');
+  partsList.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{selectOnly('part',b.dataset.id);render();}));
+}
+
+function deleteSelected(){
+  const partIds=new Set(selectedPartIds());
+  const wireIds=new Set(selectedWireIds());
+  if(!partIds.size && !wireIds.size) return;
+  pushHistory();
+  state.parts=state.parts.filter(p=>!partIds.has(p.id));
+  state.wires=state.wires.filter(w=>{
+    if(wireIds.has(w.id)) return false;
+    if(w.from.kind==='pin'&&partIds.has(w.from.partId)) return false;
+    if(w.to.kind==='pin'&&partIds.has(w.to.partId)) return false;
+    return true;
+  });
+  clearSelection();
+  render();
+}
+
+function updateButtons(){
+  selectTool.classList.toggle('active',state.mode==='select'&&!state.placingType);
+  moveTool.classList.toggle('active',state.mode==='move'&&!state.placingType);
+  wireTool.classList.toggle('active',state.mode==='wire'||!!state.wireStart);
+  wireTool.classList.toggle('wire-active',state.mode==='wire'||!!state.wireStart);
+  componentGrid.querySelectorAll('.component').forEach(c=>c.classList.toggle('active',c.dataset.type===state.placingType));
+}
+
+
+function breadboardGroup(node){
+  node=String(node||'');
+  let m=node.match(/^TR([+-])\d+$/); if(m) return m[1]==='+'?'TOP_RED':'TOP_BLUE';
+  m=node.match(/^BR([+-])\d+$/); if(m) return m[1]==='+'?'BOTTOM_RED':'BOTTOM_BLUE';
+  m=node.match(/^([jihgf])(\d+)$/); if(m) return 'TOP_COL_'+m[2];
+  m=node.match(/^([edcba])(\d+)$/); if(m) return 'BOTTOM_COL_'+m[2];
+  return 'HOLE_'+node;
+}
+
+function makeUnionFind(){
+  const parent=new Map();
+  const add=x=>{if(!parent.has(x)) parent.set(x,x);};
+  const find=x=>{add(x); let p=parent.get(x); if(p!==x){p=find(p); parent.set(x,p);} return parent.get(x);};
+  const union=(a,b)=>{a=find(a); b=find(b); if(a!==b) parent.set(b,a);};
+  return {add,find,union,parent};
+}
+
+function connectorNode(conn){
+  if(conn.kind==='hole') return 'BB:'+breadboardGroup(conn.node);
+  return `PIN:${conn.partId}.${conn.pin}`;
+}
+
+function parseSpiceValue(raw,type){
+  let s=String(raw||'').trim().replace(/Ω|Ω|ohm|ohms/ig,'').replace(/μ/g,'u').replace(/µ/g,'u').replace(/\s+/g,'');
+  if(!s) return type==='resistor'?'1k':type==='capacitor'?'1u':type==='inductor'?'1m':type==='current'?'1m':'1';
+  return s;
+}
+
+function buildNetlist(){
+  const uf=makeUnionFind();
+  holeMap.forEach((_,node)=>uf.add('BB:'+breadboardGroup(node)));
+  state.parts.forEach(p=>{
+    defs[p.type].pins.forEach(pin=>uf.add(`PIN:${p.id}.${pin.n}`));
+    Object.entries(p.pinNodes||{}).forEach(([pin,node])=>uf.union(`PIN:${p.id}.${pin}`,'BB:'+breadboardGroup(node)));
+  });
+  state.wires.forEach(w=>uf.union(connectorNode(w.from),connectorNode(w.to)));
+
+  const groups=new Map();
+  Array.from(uf.parent.keys()).forEach(k=>{
+    const r=uf.find(k);
+    if(!groups.has(r)) groups.set(r,[]);
+    groups.get(r).push(k);
+  });
+  const rootInfo=new Map();
+  groups.forEach((items,root)=>{
+    const hasBlue=items.some(x=>x==='BB:TOP_BLUE'||x==='BB:BOTTOM_BLUE');
+    const hasRed=items.some(x=>x==='BB:TOP_RED'||x==='BB:BOTTOM_RED');
+    rootInfo.set(root,{items,hasBlue,hasRed});
+  });
+  let groundRoot=null;
+  for(const [root,info] of rootInfo){ if(info.hasBlue){groundRoot=root; break;} }
+  let netSeq=1;
+  const netNames=new Map();
+  if(groundRoot) netNames.set(groundRoot,'0');
+  Array.from(rootInfo.keys()).sort().forEach(root=>{
+    if(netNames.has(root)) return;
+    const info=rootInfo.get(root);
+    netNames.set(root, info.hasRed ? `VPLUS${netSeq++}` : `N${netSeq++}`);
+  });
+  const netOf=(part,pin)=>netNames.get(uf.find(`PIN:${part.id}.${pin}`))||'NC';
+  const safeId=(p,prefix)=>String(p.label||p.id||'').match(new RegExp('^'+prefix+'[A-Za-z0-9_]*$','i')) ? String(p.label).replace(/\s+/g,'_') : prefix+p.id.replace(/^P/,'');
+  const lines=[];
+  lines.push('* LTspice netlist exported from breadboard editor');
+  lines.push('* Breadboard rule: red/blue rails are connected horizontally; normal holes are connected vertically by column.');
+  lines.push('* Blue rail net is exported as SPICE ground 0 when present.');
+  const models=new Set();
+  state.parts.forEach(p=>{
+    const pins=defs[p.type].pins.map(pin=>pin.n);
+    if(p.type==='resistor') lines.push(`${safeId(p,'R')} ${netOf(p,pins[0])} ${netOf(p,pins[1])} ${parseSpiceValue(p.value,'resistor')}`);
+    else if(p.type==='capacitor') lines.push(`${safeId(p,'C')} ${netOf(p,pins[0])} ${netOf(p,pins[1])} ${parseSpiceValue(p.value,'capacitor')}`);
+    else if(p.type==='inductor') lines.push(`${safeId(p,'L')} ${netOf(p,pins[0])} ${netOf(p,pins[1])} ${parseSpiceValue(p.value,'inductor')}`);
+    else if(p.type==='battery') lines.push(`${safeId(p,'V')} ${netOf(p,'+')} ${netOf(p,'-')} DC ${parseSpiceValue(p.value,'battery')}`);
+    else if(p.type==='current') lines.push(`${safeId(p,'I')} ${netOf(p,'+')} ${netOf(p,'-')} ${parseSpiceValue(p.value,'current')}`);
+    else if(p.type==='led'){ lines.push(`${safeId(p,'D')} ${netOf(p,'A')} ${netOf(p,'K')} DIODE`); models.add('.model DIODE D(Is=2.52n Rs=0.568 N=1.75 Cjo=4p M=0.4 Eg=1.11)'); }
+    else if(p.type==='npn'){ lines.push(`${safeId(p,'Q')} ${netOf(p,'C')} ${netOf(p,'B')} ${netOf(p,'E')} QNPN`); models.add('.model QNPN NPN(Bf=100 Vaf=100 Is=1e-14)'); }
+    else if(p.type==='pnp'){ lines.push(`${safeId(p,'Q')} ${netOf(p,'C')} ${netOf(p,'B')} ${netOf(p,'E')} QPNP`); models.add('.model QPNP PNP(Bf=100 Vaf=100 Is=1e-14)'); }
+    else if(p.type==='switch') lines.push(`* ${p.id} switch ${netOf(p,pins[0])} ${netOf(p,pins[1])} はLTspice用の制御端子設定が未指定です`);
+    else if(p.type==='custombox') lines.push(`* ${p.id} custom ${netOf(p,pins[0])} ${netOf(p,pins[1])} ${String(p.label||'その他素子')} ${String(p.value||'')}`);
+  });
+  models.forEach(m=>lines.push(m));
+  lines.push('.op');
+  lines.push('.end');
+  return lines.join('\n');
+}
+
+
+function stripNetlistLine(line){
+  return String(line||'').replace(/;.*/,'').trim();
+}
+
+function parseLtspiceNetlist(text){
+  const items=[];
+  const models=[];
+  String(text||'').split(/\r?\n/).forEach((raw,idx)=>{
+    const line=stripNetlistLine(raw);
+    if(!line || line.startsWith('*')) return;
+    if(line.startsWith('.')){models.push(line); return;}
+    const t=line.split(/\s+/);
+    if(!t.length) return;
+    const name=t[0];
+    const lead=name.charAt(0).toUpperCase();
+    let type=null,pins=[],value='';
+    if(lead==='R'){type='resistor'; pins=t.slice(1,3); value=t.slice(3).join(' ');}
+    else if(lead==='C'){type='capacitor'; pins=t.slice(1,3); value=t.slice(3).join(' ');}
+    else if(lead==='L'){type='inductor'; pins=t.slice(1,3); value=t.slice(3).join(' ');}
+    else if(lead==='V'){type='battery'; pins=t.slice(1,3); value=t.slice(3).join(' ') || 'DC 5';}
+    else if(lead==='I'){type='current'; pins=t.slice(1,3); value=t.slice(3).join(' ') || 'DC 1m';}
+    else if(lead==='D'){type='led'; pins=t.slice(1,3); value=t[3]||'1N4148';}
+    else if(lead==='Q'){
+      const model=(t[4]||'').toUpperCase();
+      type=model.includes('PNP')?'pnp':'npn';
+      pins=t.slice(1,4); value=t[4]||model||'Q';
+    }
+    else if(lead==='X'){type='custombox'; pins=t.slice(1,3); value=t.slice(3).join(' ');}
+    else return;
+    if(pins.some(n=>!n)) return;
+    items.push({lineNo:idx+1,name,lead,type,pins,value,raw:line});
+  });
+  return {items,models};
+}
+
+function normalizeSpiceValueForPart(raw,type){
+  let s=String(raw||'').trim();
+  if(type==='battery'){
+    s=s.replace(/^DC\s+/i,'').trim();
+    if(!s) s='5';
+    return s.match(/[a-zµμΩΩ]$/i)?s:s+'V';
+  }
+  if(type==='current'){
+    s=s.replace(/^DC\s+/i,'').trim();
+    return s || '1mA';
+  }
+  if(type==='resistor'){
+    if(!s) return '1kΩ';
+    return /[ΩΩ]|ohm/i.test(s)?s:s+'Ω';
+  }
+  if(type==='capacitor') return s||'1u';
+  if(type==='inductor') return s||'1m';
+  if(type==='custombox') return s||'';
+  return s||defs[type]?.value||'';
+}
+
+function partSpiceName(p){
+  const prefix={resistor:'R',capacitor:'C',inductor:'L',battery:'V',current:'I',led:'D',npn:'Q',pnp:'Q',switch:'S',custombox:'X'}[p.type]||'X';
+  const lab=String(p.label||'').trim().replace(/\s+/g,'_');
+  if(new RegExp('^'+prefix+'[A-Za-z0-9_]*$','i').test(lab)) return lab.toUpperCase();
+  return (prefix+p.id.replace(/^P/,'')).toUpperCase();
+}
+
+function spiceNameKey(name){
+  return String(name||'').trim().toUpperCase().replace(/[^A-Z0-9_+-]/g,'');
+}
+
+function partNameKeys(p){
+  const keys=new Set();
+  keys.add(partSpiceName(p));
+  if(p.label){
+    keys.add(String(p.label).trim().toUpperCase());
+    keys.add(spiceNameKey(p.label));
+  }
+  return Array.from(keys).filter(Boolean);
+}
+
+function maxPinDx(type){
+  return Math.max(...(defs[type]?.pins||[{dx:0}]).map(p=>Number(p.dx)||0));
+}
+
+function findAutoAnchorForItem(type,index){
+  const rows=['a','b','c','d','e','f','g','h','i','j'];
+  const span=Math.max(1,maxPinDx(type));
+  const usable=Math.max(1,30-span);
+  for(let k=0;k<rows.length*usable;k++){
+    const n=index*3+k;
+    const row=rows[n%rows.length];
+    const col=1+(Math.floor(n/rows.length)%usable);
+    const anchor=row+col;
+    if(partFromAnchor(type,anchor,0)) return anchor;
+  }
+  return rows[index%rows.length]+'1';
+}
+
+function createPartFromNetlistItem(item,index){
+  const anchor=findAutoAnchorForItem(item.type,index);
+  let part=partFromAnchor(item.type,anchor,0);
+  if(!part){
+    part={type:item.type,rot:0,x:120+(index%8)*110,y:150+Math.floor(index/8)*90,pinNodes:{}};
+  }
+  part.id='P'+state.seq++;
+  part.label=item.name;
+  part.value=normalizeSpiceValueForPart(item.value,item.type);
+  part.showLabel=true;
+  part.showValue=true;
+  ensureLayout(part);
+  normalizePartLayout(part);
+  state.parts.push(part);
+  return part;
+}
+
+function ensurePartsForNetlistItems(items){
+  const reserved=new Set();
+  const findCandidate=(item)=>{
+    const itemName=String(item.name).trim().toUpperCase();
+    const itemKey=spiceNameKey(item.name);
+    let part=state.parts.find(p=>!reserved.has(p.id) && partNameKeys(p).some(k=>k===itemName || spiceNameKey(k)===itemKey));
+    if(part) return part;
+    return state.parts.find(p=>!reserved.has(p.id) && p.type===item.type);
+  };
+  let created=0;
+  items.forEach((item,idx)=>{
+    let part=findCandidate(item);
+    if(!part){
+      part=createPartFromNetlistItem(item,idx);
+      created++;
+    }
+    reserved.add(part.id);
+  });
+  return created;
+}
+
+function matchNetlistItemsToParts(items){
+  const used=new Set();
+  const matches=[];
+  items.forEach(item=>{
+    const itemName=String(item.name).trim().toUpperCase();
+    const itemKey=spiceNameKey(item.name);
+    let part=state.parts.find(p=>!used.has(p.id) && partNameKeys(p).some(k=>k===itemName || spiceNameKey(k)===itemKey));
+    if(!part){
+      part=state.parts.find(p=>!used.has(p.id) && p.type===item.type);
+    }
+    if(part){
+      used.add(part.id);
+      matches.push({item,part});
+    }
+  });
+  return matches;
+}
+
+function pinNamesForNetItem(item){
+  if(item.type==='battery'||item.type==='current') return ['+','-'];
+  if(item.type==='led') return ['A','K'];
+  if(item.type==='npn'||item.type==='pnp') return ['C','B','E'];
+  return defs[item.type]?.pins.map(p=>p.n) || [];
+}
+
+function addAutowire(a,b,color){
+  if(!a||!b||sameConnector(a,b)) return false;
+  const exists=state.wires.some(w=>(sameConnector(w.from,a)&&sameConnector(w.to,b))||(sameConnector(w.from,b)&&sameConnector(w.to,a)));
+  if(exists) return false;
+  state.wires.push({id:'W'+state.seq++,from:{...a},to:{...b},color});
+  return true;
+}
+
+function railConnectorForNet(net){
+  const n=String(net||'').trim().toUpperCase();
+  if(n==='0'||n==='GND'||n==='GROUND'||n==='VSS') return {kind:'hole',node:'BR-1'};
+  if(n==='VPLUS'||n==='+V'||n==='VCC'||n==='VDD'||n==='VIN'||n==='V+') return {kind:'hole',node:'BR+1'};
+  return null;
+}
+
+function boardNodeForRailNet(net){
+  const r=railConnectorForNet(net);
+  return r ? r.node : null;
+}
+
+function assignCleanNetColumns(items){
+  const freq=new Map();
+  const first=new Map();
+  let order=0;
+  items.forEach(item=>{
+    item.pins.forEach(net=>{
+      const key=String(net||'').trim();
+      if(!key || boardNodeForRailNet(key)) return;
+      if(!first.has(key)) first.set(key,order++);
+      freq.set(key,(freq.get(key)||0)+1);
+    });
+  });
+  const cols=[2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29];
+  const entries=[...freq.keys()].sort((a,b)=>{
+    const fa=freq.get(b)-freq.get(a);
+    return fa || (first.get(a)-first.get(b));
+  });
+  const map=new Map();
+  entries.forEach((net,i)=>map.set(net,cols[i%cols.length]));
+  return map;
+}
+
+function cleanRowForIndex(index){
+  const rows=['j','h','f','d','b','i','g','e','c','a'];
+  return rows[index%rows.length];
+}
+
+function pinNetPairsForMatch(match){
+  const pinNames=pinNamesForNetItem(match.item);
+  return match.item.pins.map((net,i)=>({pin:pinNames[i],net})).filter(x=>x.pin);
+}
+
+function arrangeMatchedPartsCleanly(matches){
+  const netCols=assignCleanNetColumns(matches.map(m=>m.item));
+  const usedByNode=new Map();
+  matches.forEach((match,idx)=>{
+    const part=match.part;
+    ensureLayout(part);
+    const row=cleanRowForIndex(idx);
+    const pinNodes={};
+    pinNetPairsForMatch(match).forEach(({pin,net})=>{
+      let node=boardNodeForRailNet(net);
+      if(!node){
+        let col=netCols.get(String(net).trim()) || (2+(idx%26));
+        node=row+col;
+        // 同じ穴に違うネットの端子が重なりすぎる場合は、同じ列を保ちながら別の縦穴へ逃がす。
+        const keyBase=String(net).trim();
+        const candidates=[row,'j','i','h','g','f','e','d','c','b','a'].map(r=>r+col).filter(n=>holeMap.has(n));
+        const found=candidates.find(n=>!usedByNode.has(n));
+        if(found) node=found;
+        usedByNode.set(node,keyBase);
+      }
+      if(holeMap.has(node)) pinNodes[pin]=node;
+    });
+    if(Object.keys(pinNodes).length){
+      part.pinNodes={...(part.pinNodes||{}),...pinNodes};
+      syncPartToHoles(part);
+      part.bodyShiftX=0;
+      part.bodyShiftY=0;
+      normalizePartLayout(part);
+    }
+  });
+}
+
+function breadboardImplicitGroup(conn){
+  let node=null;
+  if(conn.kind==='hole') node=conn.node;
+  else{
+    const p=state.parts.find(x=>x.id===conn.partId);
+    node=p?.pinNodes?.[conn.pin]||null;
+  }
+  if(!node) return '';
+  const m=String(node).match(/^([a-j])([0-9]+)$/i);
+  if(m){
+    const row=m[1].toLowerCase(), col=m[2];
+    return (['a','b','c','d','e'].includes(row)?'LOW':'HIGH')+col;
+  }
+  const r=String(node).match(/^(TR|BR)([+-])([0-9]+)$/i);
+  if(r) return r[1].toUpperCase()+r[2];
+  return node;
+}
+
+function addAutowireClean(a,b,color){
+  if(breadboardImplicitGroup(a) && breadboardImplicitGroup(a)===breadboardImplicitGroup(b)) return false;
+  return addAutowire(a,b,color);
+}
+
+function setImportResult(message,isError=false){
+  const box=document.getElementById('importNetlistResult');
+  if(box){
+    box.textContent=message;
+    box.style.color=isError?'#b91c1c':'#166534';
+    box.style.background=isError?'#fff1f2':'#f0fdf4';
+    box.style.border='1px solid '+(isError?'#fecdd3':'#bbf7d0');
+    box.style.borderRadius='10px';
+    box.style.padding='8px';
+    box.style.marginTop='8px';
+    box.style.whiteSpace='pre-wrap';
+  }
+}
+
+function applyLtspiceNetlist(text){
+  try{
+    const input=String(text||'').trim();
+    if(!input){
+      const msg='ネットリスト欄が空です。LTspiceのネットリストを貼り付けてください。';
+      status('ネットリストが空です',msg);
+      setImportResult(msg,true);
+      return;
+    }
+    const parsed=parseLtspiceNetlist(input);
+    if(!parsed.items.length){
+      const msg='有効なLTspice部品行が見つかりませんでした。\n例: R1 N001 N002 220 / C1 N002 0 10u / V1 N001 0 DC 5';
+      status('読み込めませんでした','有効なLTspice部品行が見つかりませんでした。R/C/L/V/I/D/Q の行を入力してください。');
+      setImportResult(msg,true);
+      return;
+    }
+    pushHistory();
+    const createdCount=ensurePartsForNetlistItems(parsed.items);
+    const matches=matchNetlistItemsToParts(parsed.items);
+    if(!matches.length){
+      const need=[...new Set(parsed.items.map(i=>i.lead))].join(', ');
+      const msg=`対応する配置済み素子が見つかりませんでした。\n自動配置にも失敗しました。検出した種類: ${need}`;
+      status('対応する素子がありません','ネットリスト内の部品に対応する素子を作成できませんでした。');
+      setImportResult(msg,true);
+      return;
+    }
+    arrangeMatchedPartsCleanly(matches);
+
+    const netMap=new Map();
+    matches.forEach(({item,part})=>{
+      part.label=item.name;
+      part.value=normalizeSpiceValueForPart(item.value,item.type);
+      const pinNames=pinNamesForNetItem(item);
+      item.pins.forEach((net,i)=>{
+        const pin=pinNames[i];
+        if(!pin) return;
+        const key=String(net).trim();
+        if(!key) return;
+        if(!netMap.has(key)) netMap.set(key,[]);
+        netMap.get(key).push({kind:'pin',partId:part.id,pin});
+      });
+    });
+
+    state.wires=[];
+    const colors=['#ef4444','#22c55e','#3b82f6','#f59e0b','#8b5cf6','#111827'];
+    let wireCount=0, colorIndex=0;
+    netMap.forEach((conns,net)=>{
+      const unique=[];
+      conns.forEach(c=>{ if(!unique.some(u=>sameConnector(u,c))) unique.push(c); });
+      const rail=railConnectorForNet(net);
+      const color=rail && /^(0|GND|GROUND|VSS)$/i.test(String(net)) ? '#3b82f6' : (rail ? '#ef4444' : colors[colorIndex++%colors.length]);
+      if(rail){
+        unique.forEach(c=>{ if(addAutowireClean(rail,c,color)) wireCount++; });
+      }else if(unique.length>1){
+        const hub=unique[0];
+        unique.slice(1).forEach(c=>{ if(addAutowireClean(hub,c,color)) wireCount++; });
+      }
+    });
+    clearSelection();
+    render();
+    showNetlistImport(input);
+    const msg=`自動配置・自動配線しました。\n対応した素子: ${matches.length}個 / 自動追加: ${createdCount}個 / 生成した配線: ${wireCount}本\n同じネットはできるだけ同じ列にそろえ、ブレッドボード内でつながる部分の余分な線は減らしています。\n0/GNDは青レール、VCC/VDD/VPLUS/VINは赤レールへ接続します。`;
+    status('自動配置・自動配線しました',`${matches.length}個の素子をきれいに並べ、${wireCount}本の配線を作りました。`);
+    setImportResult(msg,false);
+  }catch(err){
+    console.error(err);
+    const msg='自動配線中にエラーが発生しました: '+err.message;
+    status('自動配線エラー',err.message);
+    setImportResult(msg,true);
+  }
+}
+
+function showNetlistImport(existingText=''){
+  // 右メニューが折りたたまれていると入力欄や結果が見えないため、開いてから表示する。
+  if(app.classList.contains('sidebar-minimized')){
+    app.classList.remove('sidebar-minimized');
+    sidebar.classList.remove('collapsed');
+    componentSection.classList.remove('minimized');
+    componentMinBtn.textContent='最小化';
+    componentMinBtn.title='右メニューを最小化';
+    requestAnimationFrame(fitWorkspace);
+  }
+  clearSelection();
+  const sample='R1 N001 N002 220\nC1 N002 0 10u\nV1 N001 0 DC 5';
+  inspector.innerHTML=`<div class="field"><label>LTspiceネットリスト入力</label><textarea id="importNetlistText" style="width:100%;height:260px;border:1px solid #d7deea;border-radius:10px;padding:8px;background:#fff;color:#263244;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;white-space:pre;" placeholder="${esc(sample)}">${esc(existingText)}</textarea></div><div class="action-row"><button type="button" id="applyNetlistBtn">配線を自動生成</button><button type="button" id="pasteNetlistBtn">貼り付け</button></div><div id="importNetlistResult" class="muted" style="margin-top:8px">ここにネットリストを貼り付けて「配線を自動生成」を押してください。</div><div class="muted" style="margin-top:8px">配置済みの素子に、ネットリストの部品名または種類順で対応させます。R/C/L/V/I/D/Qに対応しています。不足している素子は自動配置します。同じネットはできるだけ同じ列にそろえて、配線がぐちゃぐちゃになりにくい配置にします。生成時は現在の配線を置き換えます。0/GNDは青レール、VCC/VDD/VPLUS/VINは赤レールに接続します。</div>`;
+  const ta=document.getElementById('importNetlistText');
+  const applyBtn=document.getElementById('applyNetlistBtn');
+  const pasteBtn=document.getElementById('pasteNetlistBtn');
+  applyBtn.addEventListener('click',e=>{
+    e.preventDefault();
+    e.stopPropagation();
+    applyLtspiceNetlist(ta.value);
+  });
+  pasteBtn.addEventListener('click',async e=>{
+    e.preventDefault();
+    e.stopPropagation();
+    try{
+      if(navigator.clipboard && window.isSecureContext){
+        ta.value=await navigator.clipboard.readText();
+        setImportResult('貼り付けました。内容を確認して「配線を自動生成」を押してください。',false);
+      }else{
+        ta.focus();
+        status('貼り付けしてください','テキスト欄にCtrl+Vで貼り付けてから「配線を自動生成」を押してください。');
+        setImportResult('この環境では自動貼り付けが使えません。Ctrl+Vで貼り付けてください。',true);
+      }
+    }catch(err){
+      ta.focus();
+      status('貼り付けできませんでした','テキスト欄に手動で貼り付けてから「配線を自動生成」を押してください。');
+      setImportResult('貼り付けできませんでした。テキスト欄に手動で貼り付けてください。',true);
+    }
+  });
+  ta.focus();
+  status('ネットリスト入力','LTspiceネットリストを貼り付けて、自動配線できます。');
+}
+
+function exportNetlist(){
+  const text=buildNetlist();
+  inspector.innerHTML=`<div class="field"><label>LTspiceネットリスト</label><textarea id="netlistText" readonly style="width:100%;height:260px;border:1px solid #d7deea;border-radius:10px;padding:8px;background:#fff;color:#263244;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;white-space:pre;">${esc(text)}</textarea></div><div class="action-row"><button id="copyNetlistBtn">コピー</button></div><div class="muted">赤・青レールは横方向、通常穴は同じ列の縦方向を同一ネットとして計算しています。青レールにつながるネットはLTspiceのGND「0」にしています。</div>`;
+  const ta=document.getElementById('netlistText');
+  const copyBtn=document.getElementById('copyNetlistBtn');
+  if(ta){
+    ta.focus();
+    ta.select();
+  }
+  if(copyBtn){
+    copyBtn.addEventListener('click',async()=>{
+      try{
+        if(navigator.clipboard && window.isSecureContext){
+          await navigator.clipboard.writeText(text);
+        }else{
+          ta.focus();
+          ta.select();
+          document.execCommand('copy');
+        }
+        status('コピーしました','LTspiceネットリストをクリップボードにコピーしました。');
+      }catch(err){
+        ta.focus();
+        ta.select();
+        status('コピーできませんでした','テキスト欄を選択済みにしたので、Ctrl+Cでコピーしてください。');
+      }
+    });
+  }
+  status('ネットリストを表示しました','右の欄にコピーできる形で表示しました。自動ダウンロードは行いません。');
+}
+
+function fitWorkspace(){
+  updateWorkspaceTransform();
+  render();
+}
+
+
+function updateWorkspaceTransform(){
+  workspace.style.transform=`translate(${state.panX}px, ${state.panY}px) scale(${state.scale})`;
+}
+
+function zoomAt(nextScale, clientX, clientY){
+  const before=boardPoint({clientX,clientY});
+  state.scale=Math.max(.35,Math.min(2.5,nextScale));
+  updateWorkspaceTransform();
+  const after=boardPoint({clientX,clientY});
+  state.panX+=(after.x-before.x)*state.scale;
+  state.panY+=(after.y-before.y)*state.scale;
+  updateWorkspaceTransform();
+  render();
+}
+
+function zoomFromCenter(delta){
+  const r=main.getBoundingClientRect();
+  zoomAt(state.scale+delta,r.left+r.width/2,r.top+r.height/2);
+}
+
+function startPan(e){
+  if(e.button!==2) return;
+  e.preventDefault();
+  e.stopPropagation();
+  state.isPanning=true;
+  main.classList.add('panning');
+  const startX=e.clientX, startY=e.clientY;
+  const baseX=state.panX, baseY=state.panY;
+  status('移動モード','右クリックを押したまま動かすと、パレット全体を移動できます。');
+  function move(ev){
+    if(!state.isPanning) return;
+    state.panX=baseX+ev.clientX-startX;
+    state.panY=baseY+ev.clientY-startY;
+    updateWorkspaceTransform();
+  }
+  function up(){
+    state.isPanning=false;
+    main.classList.remove('panning');
+    window.removeEventListener('mousemove',move);
+    window.removeEventListener('mouseup',up);
+  }
+  window.addEventListener('mousemove',move);
+  window.addEventListener('mouseup',up);
+}
+
+function bind(){
+  main.addEventListener('mousemove',e=>{
+    state.tempMouse=boardPoint(e);
+    updateGhost();
+    drawWires();
+    updateHoles();
+  });
+  main.addEventListener('mouseleave',()=>{
+    state.tempMouse=null;
+    updateGhost();
+    drawWires();
+    updateHoles();
+  });
+  main.addEventListener('wheel',e=>{
+    e.preventDefault();
+    const factor=e.deltaY<0 ? 1.1 : 1/1.1;
+    zoomAt(state.scale*factor,e.clientX,e.clientY);
+  },{passive:false});
+  main.addEventListener('contextmenu',e=>e.preventDefault());
+  main.addEventListener('mousedown',startPan);
+  componentMinBtn.addEventListener('click',()=>{
+    const minimized=!app.classList.contains('sidebar-minimized');
+    app.classList.toggle('sidebar-minimized',minimized);
+    sidebar.classList.toggle('collapsed',minimized);
+    componentSection.classList.toggle('minimized',minimized);
+    componentMinBtn.textContent=minimized?'展開':'最小化';
+    componentMinBtn.title=minimized?'右メニューを展開':'右メニューを最小化';
+    status(minimized?'右メニューを最小化':'右メニューを展開', minimized?'右側のコンポーネントメニューを折りたたみ、作業エリアを広げました。':'右側のコンポーネントメニューを元に戻しました。');
+    requestAnimationFrame(fitWorkspace);
+  });
+  board.addEventListener('click',e=>{
+    if(state.placingType){
+      const p=boardPoint(e);
+      const n=nearestHole(p.x,p.y,placementSnapRadius(state.placingType));
+      placeAt(n?.node||null,state.placingType,p);
+    }else if(state.mode!=='wire' && !state.wireStart && !e.target.closest('.part')&&!e.target.closest('.hole')){
+      clearSelection(); render();
+    }
+  });
+  selectTool.addEventListener('click',()=>{state.mode='select';state.wireStart=null;state.placingType=null;state.placingRot=0;updateButtons();render();});
+  moveTool.addEventListener('click',()=>{state.mode='move';state.wireStart=null;state.placingType=null;state.placingRot=0;updateButtons();status('移動ツール','部品をドラッグすると、配線ごと自由に移動します。穴への固定は外れます。');render();});
+  wireTool.addEventListener('click',()=>{state.mode='wire';state.wireStart=null;state.placingType=null;state.placingRot=0;updateButtons();status('配線モード','端子または穴をクリックして配線を開始してください。');render();});
+  rotateTool.addEventListener('click',rotateSelected);
+  deleteTool.addEventListener('click',deleteSelected);
+  zoomInTool.addEventListener('click',()=>zoomFromCenter(.1));
+  zoomOutTool.addEventListener('click',()=>zoomFromCenter(-.1));
+  clearBtn.addEventListener('click',()=>{if(confirm('全消去しますか？')){pushHistory();state.parts=[];state.wires=[];clearSelection();render();}});
+  netlistBtn.addEventListener('click',exportNetlist);
+  importNetlistBtn.addEventListener('click',showNetlistImport);
+  saveBtn.addEventListener('click',()=>{
+    const blob=new Blob([JSON.stringify({parts:state.parts,wires:state.wires,seq:state.seq},null,2)],{type:'application/json'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob); a.download='breadboard-circuit.json'; a.click(); URL.revokeObjectURL(a.href);
+  });
+  loadBtn.addEventListener('click',()=>loadFile.click());
+  loadFile.addEventListener('change',e=>{
+    const f=e.target.files[0]; if(!f) return;
+    f.text().then(t=>{
+      const d=JSON.parse(t);
+      pushHistory();
+      state.parts=Array.isArray(d.parts)?d.parts:[];
+      state.parts.forEach(part=>ensureLayout(part));
+      state.wires=Array.isArray(d.wires)?d.wires:[];
+      state.seq=Number(d.seq)||1;
+      clearSelection();
+      render();
+    }).catch(()=>alert('読み込めませんでした'));
+  });
+  document.addEventListener('keydown',e=>{
+    const tag=(document.activeElement && document.activeElement.tagName || '').toLowerCase();
+    const typing=['input','select','textarea'].includes(tag);
+    if((e.ctrlKey||e.metaKey) && !typing && e.key && e.key.toLowerCase()==='z'){
+      e.preventDefault();
+      if(e.shiftKey) redoAction(); else undoAction();
+      return;
+    }
+    if(e.key==='Escape'){
+      if(document.activeElement) document.activeElement.blur();
+      state.placingType=null;state.placingRot=0;state.wireStart=null;state.mode='select';updateButtons();render();
+    }
+    if(!typing && (e.key?.toLowerCase()==='r' || e.code==='KeyR') && (state.placingType || selectedPartIds().length)){
+      e.preventDefault(); rotateSelected();
+    }
+    if(!typing && e.key==='Delete') deleteSelected();
+  });
+}
+
+try{
+  initBoard();
+  initPalette();
+  bind();
+  updateWorkspaceTransform();
+  render();
+}catch(err){
+  console.error(err);
+  alert('初期化でエラーが発生しました: '+err.message);
+}
+})();
+</script>
+</body>
+</html>
